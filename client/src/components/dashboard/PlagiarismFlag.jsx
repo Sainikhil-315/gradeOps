@@ -1,0 +1,1 @@
+// PlagiarismFlag component

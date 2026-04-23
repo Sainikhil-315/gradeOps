@@ -1,0 +1,1 @@
+// AnswerImagePane component
