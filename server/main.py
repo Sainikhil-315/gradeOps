@@ -1,42 +1,155 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import settings
-from app.api.routes import auth, exams, rubrics, grades, pipeline, export
+"""
+GradeOps FastAPI Application.
 
-# Initialize FastAPI app
+Main entry point for the backend API.
+"""
+
+import logging
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import time
+
+from app.api.routes import auth, exams, rubrics, submissions, grades, export
+from app.core.supabase import health_check
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+# Lifespan event handlers
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Manage application startup and shutdown.
+    
+    Startup:
+        - Check database connection
+        - Verify storage buckets
+        
+    Shutdown:
+        - Close connections cleanly
+    """
+    # Startup
+    logger.info("GradeOps API starting...")
+    try:
+        health = await health_check()
+        if health["database"] and health["storage"]:
+            logger.info("✓ All services healthy")
+        else:
+            logger.warning(f"⚠️  Health check issues: {health}")
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+    
+    yield
+    
+    # Shutdown
+    logger.info("🛑 GradeOps API shutting down...")
+
+
+# Create FastAPI app
 app = FastAPI(
-    title=settings.APP_NAME,
-    description="Grade Operations API",
-    version="1.0.0"
+    title="GradeOps API",
+    description="AI-powered exam grading system with TA review dashboard",
+    version="0.1.0",
+    lifespan=lifespan
 )
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",  # Vite dev server
+        "https://localhost:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+# Middleware for request timing and logging
+@app.middleware("http")
+async def add_request_timing(request: Request, call_next):
+    """Log request duration."""
+    start_time = time.time()
+    response = await call_next(request)
+    duration = time.time() - start_time
+    
+    logger.info(
+        f"{request.method} {request.url.path} - {response.status_code} "
+        f"({duration:.2f}s)"
+    )
+    return response
+
+
+# Error handlers
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler."""
+    logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal server error",
+            "detail": str(exc) if str(exc) else "Unknown error"
+        }
+    )
+
+
 # Health check endpoint
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
+@app.get("/health", tags=["health"])
+async def health():
+    """Check API health and database connection."""
+    try:
+        status = await health_check()
+        all_healthy = all(status.values())
+        
+        return {
+            "status": "healthy" if all_healthy else "degraded",
+            "services": status,
+            "version": "0.1.0",
+        }
+    except Exception as e:
+        logger.error(f"Health check error: {str(e)}")
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+        }
+
+
+# Root endpoint
+@app.get("/", tags=["root"])
+def root():
+    """API root endpoint."""
+    return {
+        "message": "GradeOps API",
+        "docs": "/docs",
+        "health": "/health",
+    }
+
 
 # Include routers
-app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-app.include_router(exams.router, prefix="/api/exams", tags=["exams"])
-app.include_router(rubrics.router, prefix="/api/rubrics", tags=["rubrics"])
-app.include_router(grades.router, prefix="/api/grades", tags=["grades"])
-app.include_router(pipeline.router, prefix="/api/pipeline", tags=["pipeline"])
-app.include_router(export.router, prefix="/api/export", tags=["export"])
+app.include_router(auth.router)
+app.include_router(exams.router)
+app.include_router(rubrics.router)
+app.include_router(submissions.router)
+app.include_router(grades.router)
+app.include_router(export.router)
+
+logger.info("✓ All routes registered")
+
 
 if __name__ == "__main__":
     import uvicorn
+    
     uvicorn.run(
         "main:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
     )
