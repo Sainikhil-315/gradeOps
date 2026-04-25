@@ -117,27 +117,78 @@ class GradeService:
             raise
     
     @staticmethod
-    def get_pending_grades(db: Session, exam_id: UUID) -> List[Grade]:
+    def get_grades_for_answer_region(db: Session, answer_region_id: UUID) -> List[Grade]:
+        """
+        Get all grades for an answer region (for history/tracking).
+        
+        Args:
+            db: Database session
+            answer_region_id: AnswerRegion UUID
+            
+        Returns:
+            List of Grade objects for the answer region
+        """
+        try:
+            grades = db.query(Grade).filter(
+                Grade.answer_region_id == answer_region_id
+            ).order_by(Grade.created_at.desc()).all()
+            return grades
+        except Exception as e:
+            logger.error(f"Error retrieving grades for answer region: {str(e)}")
+            raise
+    
+    @staticmethod
+    def get_pending_grades(
+        db: Session, 
+        exam_id: UUID,
+        priority: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0
+    ) -> List[Grade]:
         """
         Get all pending grades for an exam (for TA review dashboard).
+        Prioritize high-confidence and plagiarism-flagged items.
         
         Args:
             db: Database session
             exam_id: Exam UUID
+            priority: Filter by priority (high, medium, low)
+            limit: Number of results to return
+            offset: Pagination offset
             
         Returns:
             List of pending Grade objects
         """
         try:
-            grades = db.query(Grade).join(
+            query = db.query(Grade).join(
                 AnswerRegion, AnswerRegion.id == Grade.answer_region_id
             ).join(
                 Submission, Submission.id == AnswerRegion.submission_id
             ).filter(
                 Submission.exam_id == exam_id,
                 Grade.ta_status == TAStatus.PENDING.value
-            ).order_by(Grade.created_at.asc()).all()
+            )
             
+            # Priority ordering: plagiarism flags first, then by confidence desc
+            query = query.order_by(
+                Grade.plagiarism_flag.desc(),
+                Grade.confidence_score.desc(),
+                Grade.created_at.asc()
+            )
+            
+            # Apply priority filter
+            if priority == "high":
+                query = query.filter(
+                    (Grade.plagiarism_flag == True) | (Grade.confidence_score >= 0.8)
+                )
+            elif priority == "medium":
+                query = query.filter(
+                    (Grade.confidence_score >= 0.5) & (Grade.confidence_score < 0.8)
+                )
+            elif priority == "low":
+                query = query.filter(Grade.confidence_score < 0.5)
+            
+            grades = query.limit(limit).offset(offset).all()
             return grades
         except Exception as e:
             logger.error(f"Error retrieving pending grades: {str(e)}")
@@ -178,13 +229,18 @@ class GradeService:
             raise
     
     @staticmethod
-    def approve_grade(db: Session, grade_id: UUID) -> Optional[Grade]:
+    def approve_grade(
+        db: Session, 
+        grade_id: UUID,
+        feedback: Optional[str] = None
+    ) -> Optional[Grade]:
         """
-        TA approves an AI-generated grade.
+        TA approves an AI-generated grade with optional feedback.
         
         Args:
             db: Database session
             grade_id: Grade UUID
+            feedback: Optional TA feedback text
             
         Returns:
             Updated Grade or None if not found
@@ -196,6 +252,8 @@ class GradeService:
                 return None
             
             grade.ta_status = TAStatus.APPROVED.value
+            if feedback:
+                grade.justification = f"{grade.justification}\n\n[TA Feedback]: {feedback}"
             db.commit()
             db.refresh(grade)
             logger.info(f"Grade approved: {grade_id}")
@@ -209,16 +267,18 @@ class GradeService:
     @staticmethod
     def override_grade(
         db: Session, 
-        grade_id: UUID, 
-        override_data: GradeUpdate
+        grade_id: UUID,
+        criteria_breakdown: List[Dict[str, Any]],
+        reason: str
     ) -> Optional[Grade]:
         """
-        TA overrides an AI-generated grade.
+        TA overrides an AI-generated grade with new criteria scores.
         
         Args:
             db: Database session
             grade_id: Grade UUID
-            override_data: GradeUpdate schema with new values
+            criteria_breakdown: New criterion results
+            reason: Reason for override
             
         Returns:
             Updated Grade or None if not found
@@ -229,19 +289,21 @@ class GradeService:
                 logger.warning(f"Grade not found: {grade_id}")
                 return None
             
+            # Calculate new awarded marks from criteria
+            new_awarded_marks = sum(
+                c.get("awarded", 0) if isinstance(c, dict) else c.awarded 
+                for c in criteria_breakdown
+            )
+            
             # Update fields
-            if override_data.awarded_marks is not None:
-                grade.awarded_marks = override_data.awarded_marks
-            
-            if override_data.justification:
-                grade.justification = override_data.justification
-            
-            if override_data.criteria_breakdown:
-                grade.criteria_breakdown = [
-                    c.model_dump() for c in override_data.criteria_breakdown
-                ]
-            
+            grade.awarded_marks = new_awarded_marks
+            grade.criteria_breakdown = [
+                c if isinstance(c, dict) else c.model_dump() 
+                for c in criteria_breakdown
+            ]
+            grade.justification = f"[TA Override Reason]: {reason}"
             grade.ta_status = TAStatus.OVERRIDDEN.value
+            
             db.commit()
             db.refresh(grade)
             logger.info(f"Grade overridden: {grade_id}")
@@ -286,9 +348,9 @@ class GradeService:
             raise
     
     @staticmethod
-    def get_grade_stats(db: Session, exam_id: UUID) -> Dict[str, Any]:
+    def get_exam_stats(db: Session, exam_id: UUID) -> Dict[str, Any]:
         """
-        Get grade statistics for an exam.
+        Get comprehensive grade statistics for an exam.
         
         Args:
             db: Database session
@@ -342,17 +404,34 @@ class GradeService:
                 Grade.plagiarism_flag == True
             ).scalar() or 0
             
+            avg_score = db.query(func.avg(Grade.awarded_marks)).join(
+                AnswerRegion, AnswerRegion.id == Grade.answer_region_id
+            ).join(
+                Submission, Submission.id == AnswerRegion.submission_id
+            ).filter(
+                Submission.exam_id == exam_id
+            ).scalar() or 0.0
+            
+            high_conf_count = db.query(func.count(Grade.id)).join(
+                AnswerRegion, AnswerRegion.id == Grade.answer_region_id
+            ).join(
+                Submission, Submission.id == AnswerRegion.submission_id
+            ).filter(
+                Submission.exam_id == exam_id,
+                Grade.confidence_score >= 0.8
+            ).scalar() or 0
+            
+            high_conf_rate = (high_conf_count / total_grades * 100) if total_grades > 0 else 0.0
+            
             return {
                 "total_grades": total_grades,
-                "pending": pending,
+                "pending_review": pending,
                 "approved": approved,
                 "overridden": overridden,
                 "plagiarism_flags": plagiarism_count,
-                "completion_percentage": (
-                    (approved + overridden) / total_grades * 100 
-                    if total_grades > 0 else 0
-                )
+                "average_score": float(avg_score),
+                "high_confidence_rate": float(high_conf_rate)
             }
         except Exception as e:
-            logger.error(f"Error getting grade stats: {str(e)}")
+            logger.error(f"Error getting exam stats: {str(e)}")
             raise

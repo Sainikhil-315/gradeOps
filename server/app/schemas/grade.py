@@ -56,6 +56,17 @@ class GradeUpdate(BaseModel):
     criteria_breakdown: Optional[List[CriterionResultBase]] = None
 
 
+class GradeApprove(BaseModel):
+    """Schema for TA grade approval."""
+    feedback: Optional[str] = Field(None, max_length=1000, description="TA feedback")
+
+
+class GradeOverride(BaseModel):
+    """Schema for TA grade override."""
+    criteria_breakdown: List[CriterionResultBase] = Field(..., description="Adjusted criterion scores")
+    reason: str = Field(..., max_length=2000, description="Reason for override")
+
+
 class GradeResponse(GradeBase):
     """Schema for grade API response."""
     id: str = Field(..., description="Grade UUID")

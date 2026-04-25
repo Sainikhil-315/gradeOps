@@ -48,7 +48,7 @@ class UserUpdate(BaseModel):
     
     class Config:
         # Allow at least one field to be updated
-        min_anystr_length = 1
+        str_min_length = 1
 
 
 class UserResponse(UserBase):

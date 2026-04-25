@@ -20,7 +20,7 @@ from app.schemas import (
     GradeResponse,
     GradeApprove,
     GradeOverride,
-    GradeListResponse,
+    GradeQueueResponse,
     ErrorResponse,
 )
 from app.services import GradeService
@@ -32,7 +32,7 @@ router = APIRouter(prefix="/api/grades", tags=["grades"])
 
 @router.get(
     "/queue",
-    response_model=list[GradeListResponse],
+    response_model=list[GradeQueueResponse],
 )
 def get_grade_queue(
     exam_id: str = Query(...),
@@ -55,18 +55,51 @@ def get_grade_queue(
         db: Database session
         
     Returns:
-        List of GradeListResponse
+        List of GradeQueueResponse with enriched data
     """
     try:
+        from app.models import AnswerRegion, Submission
+        
         exam_uuid = UUID(exam_id)
         grades = GradeService.get_pending_grades(
             db, exam_uuid, priority=priority, limit=limit, offset=offset
         )
         
-        return [
-            GradeListResponse.model_validate(grade)
-            for grade in grades
-        ]
+        queue_items = []
+        for grade in grades:
+            # Fetch related answer region
+            answer_region = db.query(AnswerRegion).filter(
+                AnswerRegion.id == grade.answer_region_id
+            ).first()
+            
+            # Fetch related submission
+            submission = None
+            if answer_region:
+                submission = db.query(Submission).filter(
+                    Submission.id == answer_region.submission_id
+                ).first()
+            
+            queue_items.append(GradeQueueResponse(
+                grade=GradeResponse.model_validate(grade),
+                student_name=submission.student_name if submission else None,
+                question_id=answer_region.question_id if answer_region else "",
+                image_url=answer_region.image_url if answer_region else "",
+                extracted_text=answer_region.extracted_text if answer_region else None
+            ))
+        
+        return queue_items
+        
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid exam ID format"
+        )
+    except Exception as e:
+        logger.error(f"Error getting grade queue: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get grade queue"
+        )
         
     except ValueError:
         raise HTTPException(

@@ -61,6 +61,8 @@ from .grade import (
     GradeCreate,
     GradeUpdate,
     GradeResponse,
+    GradeApprove,
+    GradeOverride,
     GradeQueueResponse,
     GradeQueueListResponse,
     TAStatusEnum,
@@ -102,9 +104,10 @@ __all__ = [
     "GradeCreate",
     "GradeUpdate",
     "GradeResponse",
+    "GradeApprove",
+    "GradeOverride",
     "GradeQueueResponse",
     "GradeQueueListResponse",
     "TAStatusEnum",
     "CriterionResultBase",
 ]
- package

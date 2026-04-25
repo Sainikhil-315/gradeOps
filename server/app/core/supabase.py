@@ -29,7 +29,7 @@ import logging
 from typing import Optional, Generator
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine, pool
+from sqlalchemy import create_engine, pool, text
 from sqlalchemy.orm import sessionmaker, Session
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -172,7 +172,7 @@ async def check_db_connection() -> bool:
     """
     try:
         with get_db() as session:
-            session.execute("SELECT 1")
+            session.execute(text("SELECT 1"))
         logger.info("✓ Database connection check passed")
         return True
     except Exception as e:

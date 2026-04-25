@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import time
 
-from app.api.routes import auth, exams, rubrics, submissions, grades, export
+from app.api.routes import auth, exams, rubrics, submissions, answer_regions, grades, export, pipeline
 from app.core.supabase import health_check
 
 # Configure logging
@@ -137,8 +137,10 @@ app.include_router(auth.router)
 app.include_router(exams.router)
 app.include_router(rubrics.router)
 app.include_router(submissions.router)
+app.include_router(answer_regions.router)
 app.include_router(grades.router)
 app.include_router(export.router)
+app.include_router(pipeline.router)
 
 logger.info("✓ All routes registered")
 

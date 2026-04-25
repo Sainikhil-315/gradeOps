@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.core.supabase import get_db_session
 from app.schemas import (
     SubmissionCreate,
-    SubmissionUpdateStatus,
+    SubmissionUpdate,
     SubmissionResponse,
     SubmissionListResponse,
     ErrorResponse,
@@ -188,7 +188,7 @@ def get_submission(
 )
 def update_submission_status(
     submission_id: str,
-    status_update: SubmissionUpdateStatus,
+    status_update: SubmissionUpdate,
     db: Session = Depends(get_db_session)
 ):
     """
@@ -196,7 +196,7 @@ def update_submission_status(
     
     Args:
         submission_id: Submission UUID
-        status_update: SubmissionUpdateStatus with new status
+        status_update: SubmissionUpdate with new status
         db: Database session
         
     Returns:

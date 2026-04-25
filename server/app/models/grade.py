@@ -19,7 +19,8 @@ from sqlalchemy import (
     Column, String, DateTime, Integer, Float, 
     Boolean, ForeignKey, func, JSON
 )
-from sqlalchemy.dialects.postgresql import UUID, VECTOR
+from sqlalchemy.dialects.postgresql import UUID
+from pgvector.sqlalchemy import Vector
 import uuid
 
 from .base import Base
@@ -133,7 +134,7 @@ class Grade(Base):
     )
     
     embedding = Column(
-        VECTOR(384),  # pgvector extension, 384-dim from sentence-transformers
+        Vector(384),  # pgvector extension, 384-dim from sentence-transformers
         nullable=True,
         comment="Embedding vector for plagiarism detection (cosine similarity search)"
     )
