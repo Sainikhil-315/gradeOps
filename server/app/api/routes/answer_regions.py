@@ -14,6 +14,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
+from app.core.dependencies import require_role
 from app.core.supabase import get_db_session
 from app.schemas import (
     AnswerRegionCreate,
@@ -37,7 +38,8 @@ router = APIRouter(prefix="/api/answer-regions", tags=["answer-regions"])
 def create_answer_region(
     submission_id: str = Query(...),
     region: AnswerRegionCreate = None,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor")),
 ):
     """
     Create a new answer region for a submission.
@@ -77,7 +79,8 @@ def create_answer_region(
 )
 def get_answer_region(
     answer_region_id: str,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor", "ta")),
 ):
     """
     Get answer region details.
@@ -125,7 +128,8 @@ def list_answer_regions_for_submission(
     question_id: str = Query(None, description="Optional question ID filter"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor", "ta")),
 ):
     """
     List all answer regions for a submission.
@@ -176,7 +180,8 @@ def list_answer_regions_for_submission(
 def update_answer_region(
     answer_region_id: str,
     update: AnswerRegionUpdate,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor")),
 ):
     """
     Update an answer region.
@@ -225,7 +230,8 @@ def update_answer_region(
 )
 def delete_answer_region(
     answer_region_id: str,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor")),
 ):
     """
     Delete an answer region.

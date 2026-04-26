@@ -15,6 +15,7 @@ from .rubric import Rubric
 from .submission import Submission, SubmissionStatus
 from .answer_region import AnswerRegion
 from .grade import Grade, TAStatus
+from .pipeline_job import PipelineJob, PipelineJobStatus
 
 __all__ = [
     "Base",
@@ -29,4 +30,6 @@ __all__ = [
     "AnswerRegion",
     "Grade",
     "TAStatus",
+    "PipelineJob",
+    "PipelineJobStatus",
 ]

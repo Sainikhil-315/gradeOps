@@ -10,10 +10,13 @@ Endpoints:
 """
 
 import logging
+import uuid
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from sqlalchemy.orm import Session
 
+from app.core.dependencies import require_role
+from app.core.supabase import SupabaseConfig, supabase
 from app.core.supabase import get_db_session
 from app.schemas import (
     SubmissionCreate,
@@ -39,7 +42,8 @@ async def upload_submission(
     student_name: str = Form(None),
     roll_number: str = Form(None),
     file: UploadFile = File(...),
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor")),
 ):
     """
     Upload a new exam submission (PDF).
@@ -73,9 +77,16 @@ async def upload_submission(
         # Read file content
         content = await file.read()
         
-        db_submission = SubmissionService.create_submission(
-            db, exam_uuid, submission_create
+        object_path = f"{exam_id}/{uuid.uuid4()}_{file.filename}"
+        supabase.storage.from_(SupabaseConfig.EXAM_PDFS_BUCKET).upload(
+            path=object_path,
+            file=content,
+            file_options={"content-type": "application/pdf"},
         )
+        public_url = supabase.storage.from_(SupabaseConfig.EXAM_PDFS_BUCKET).get_public_url(object_path)
+        submission_create.pdf_url = public_url
+
+        db_submission = SubmissionService.create_submission(db, exam_uuid, submission_create)
         
         logger.info(f"Submission uploaded for exam {exam_id}: {db_submission.id}")
         return SubmissionResponse.model_validate(db_submission)
@@ -95,12 +106,13 @@ async def upload_submission(
 
 @router.get(
     "",
-    response_model=list[SubmissionListResponse],
+    response_model=SubmissionListResponse,
 )
 def list_submissions(
     exam_id: str = Query(...),
     status_filter: str = Query(None),
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor", "ta")),
 ):
     """
     List submissions for an exam.
@@ -119,10 +131,12 @@ def list_submissions(
             db, exam_uuid, status_filter
         )
         
-        return [
-            SubmissionListResponse.model_validate(sub)
-            for sub in submissions
-        ]
+        graded_count = sum(1 for sub in submissions if str(sub.status) == "SubmissionStatus.GRADED" or str(sub.status) == "graded")
+        return SubmissionListResponse(
+            submissions=[SubmissionResponse.model_validate(sub) for sub in submissions],
+            total=len(submissions),
+            graded_count=graded_count,
+        )
         
     except ValueError:
         raise HTTPException(
@@ -143,7 +157,8 @@ def list_submissions(
 )
 def get_submission(
     submission_id: str,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor", "ta")),
 ):
     """
     Get submission details.
@@ -189,7 +204,8 @@ def get_submission(
 def update_submission_status(
     submission_id: str,
     status_update: SubmissionUpdate,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor")),
 ):
     """
     Update submission status.
@@ -238,7 +254,8 @@ def update_submission_status(
 )
 def delete_submission(
     submission_id: str,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor")),
 ):
     """
     Delete a submission.

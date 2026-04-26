@@ -48,10 +48,26 @@ class Settings(BaseSettings):
     SUPABASE_STORAGE_EXAM_PDFS_BUCKET: str = "exam-pdfs"
     SUPABASE_STORAGE_ANSWER_IMAGES_BUCKET: str = "answer-images"
     
-    # OpenAI API
+    # LLM provider routing
+    LLM_PROVIDER: str = "openai"
+    LLM_FALLBACK_ORDER: str = "anthropic,openai,xai"
+    LLM_MODEL: str = ""
+    LLM_TEMPERATURE: float = 0.0
+    LLM_MAX_RETRIES: int = 3
+    LLM_REQUEST_TIMEOUT_SECONDS: int = 45
+
+    # OpenAI / ChatGPT
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o"
-    OPENAI_TEMPERATURE: float = 0.7
+
+    # Anthropic / Claude
+    ANTHROPIC_API_KEY: str = ""
+    ANTHROPIC_MODEL: str = "claude-3-5-sonnet-latest"
+
+    # xAI / Grok (OpenAI-compatible API)
+    XAI_API_KEY: str = ""
+    XAI_MODEL: str = "grok-2-latest"
+    XAI_BASE_URL: str = "https://api.x.ai/v1"
     
     # Embeddings (for plagiarism detection)
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
@@ -73,6 +89,12 @@ class Settings(BaseSettings):
     # Pipeline
     PIPELINE_TIMEOUT_SECONDS: int = 300
     PIPELINE_RETRY_COUNT: int = 2
+
+    # OCR service
+    OCR_API_URL: str = ""
+    OCR_TIMEOUT_SECONDS: int = 30
+    OCR_MAX_RETRIES: int = 3
+    OCR_ENABLE_LOCAL_FALLBACK: bool = True
     
     # Logging
     LOG_LEVEL: str = "INFO"
@@ -108,7 +130,6 @@ required_settings = {
     "DATABASE_URL": settings.DATABASE_URL,
     "SUPABASE_URL": settings.SUPABASE_URL,
     "SUPABASE_KEY": settings.SUPABASE_KEY,
-    "OPENAI_API_KEY": settings.OPENAI_API_KEY,
 }
 
 missing_settings = [k for k, v in required_settings.items() if not v]

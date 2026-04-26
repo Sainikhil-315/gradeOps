@@ -14,6 +14,7 @@ from .submission_service import SubmissionService
 from .answer_region_service import AnswerRegionService
 from .grade_service import GradeService
 from .export_service import ExportService
+from .pipeline_service import PipelineService
 
 __all__ = [
     "UserService",
@@ -23,4 +24,5 @@ __all__ = [
     "AnswerRegionService",
     "GradeService",
     "ExportService",
+    "PipelineService",
 ]

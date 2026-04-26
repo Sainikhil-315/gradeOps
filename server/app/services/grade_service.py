@@ -9,6 +9,7 @@ Handles:
 """
 
 import logging
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from uuid import UUID
 from sqlalchemy.orm import Session
@@ -24,7 +25,7 @@ class GradeService:
     """Service layer for grade operations."""
     
     @staticmethod
-    def create_grade(db: Session, grade: GradeCreate) -> Grade:
+    def create_grade(db: Session, grade: GradeCreate, embedding: Optional[List[float]] = None) -> Grade:
         """
         Create a new grade (from LangGraph pipeline).
         
@@ -56,13 +57,18 @@ class GradeService:
             db_grade = Grade(
                 answer_region_id=grade.answer_region_id,
                 awarded_marks=grade.awarded_marks,
+                ai_awarded_marks=grade.awarded_marks,
                 max_marks=grade.max_marks,
                 criteria_breakdown=grade.model_dump()["criteria_breakdown"],
+                ai_criteria_breakdown=grade.model_dump()["criteria_breakdown"],
                 justification=grade.justification,
+                ai_justification=grade.justification,
                 confidence_score=grade.confidence_score,
+                ai_confidence_score=grade.confidence_score,
                 plagiarism_flag=grade.plagiarism_flag,
                 similar_submission_ids=grade.similar_submission_ids,
-                ta_status=TAStatus.PENDING.value
+                ta_status=TAStatus.PENDING.value,
+                embedding=embedding,
             )
             
             db.add(db_grade)
@@ -232,7 +238,8 @@ class GradeService:
     def approve_grade(
         db: Session, 
         grade_id: UUID,
-        feedback: Optional[str] = None
+        feedback: Optional[str] = None,
+        ta_user_id: Optional[UUID] = None,
     ) -> Optional[Grade]:
         """
         TA approves an AI-generated grade with optional feedback.
@@ -252,8 +259,7 @@ class GradeService:
                 return None
             
             grade.ta_status = TAStatus.APPROVED.value
-            if feedback:
-                grade.justification = f"{grade.justification}\n\n[TA Feedback]: {feedback}"
+            grade.ta_note = feedback
             db.commit()
             db.refresh(grade)
             logger.info(f"Grade approved: {grade_id}")
@@ -269,7 +275,8 @@ class GradeService:
         db: Session, 
         grade_id: UUID,
         criteria_breakdown: List[Dict[str, Any]],
-        reason: str
+        reason: str,
+        ta_user_id: Optional[UUID] = None,
     ) -> Optional[Grade]:
         """
         TA overrides an AI-generated grade with new criteria scores.
@@ -302,7 +309,10 @@ class GradeService:
                 for c in criteria_breakdown
             ]
             grade.justification = f"[TA Override Reason]: {reason}"
+            grade.ta_note = reason
             grade.ta_status = TAStatus.OVERRIDDEN.value
+            grade.overridden_by = ta_user_id
+            grade.overridden_at = datetime.now(timezone.utc)
             
             db.commit()
             db.refresh(grade)
@@ -435,3 +445,21 @@ class GradeService:
         except Exception as e:
             logger.error(f"Error getting exam stats: {str(e)}")
             raise
+
+    @staticmethod
+    def get_exam_embeddings(db: Session, exam_id: UUID) -> List[Dict[str, Any]]:
+        rows = (
+            db.query(Grade.answer_region_id, Grade.embedding)
+            .join(AnswerRegion, AnswerRegion.id == Grade.answer_region_id)
+            .join(Submission, Submission.id == AnswerRegion.submission_id)
+            .filter(
+                Submission.exam_id == exam_id,
+                Grade.embedding.isnot(None),
+            )
+            .all()
+        )
+        return [
+            {"answer_region_id": str(answer_region_id), "vector": embedding}
+            for answer_region_id, embedding in rows
+            if embedding
+        ]

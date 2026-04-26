@@ -5,6 +5,7 @@ Main entry point for the backend API.
 """
 
 import logging
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,7 +13,8 @@ from fastapi.responses import JSONResponse
 import time
 
 from app.api.routes import auth, exams, rubrics, submissions, answer_regions, grades, export, pipeline
-from app.core.supabase import health_check
+from app.core.supabase import SessionLocal, health_check
+from app.services import PipelineService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -43,9 +45,32 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Health check failed: {e}")
     
+    worker_running = True
+
+    async def pipeline_worker_loop():
+        while worker_running:
+            db = SessionLocal()
+            try:
+                has_job = await PipelineService.process_next_job(db)
+                if not has_job:
+                    await asyncio.sleep(1.5)
+            except Exception as worker_exc:
+                logger.exception("Pipeline worker error: %s", worker_exc)
+                await asyncio.sleep(2.5)
+            finally:
+                db.close()
+
+    worker_task = asyncio.create_task(pipeline_worker_loop())
+
     yield
     
     # Shutdown
+    worker_running = False
+    worker_task.cancel()
+    try:
+        await worker_task
+    except Exception:
+        pass
     logger.info("🛑 GradeOps API shutting down...")
 
 

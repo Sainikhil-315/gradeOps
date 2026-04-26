@@ -17,7 +17,7 @@ from enum import Enum
 from typing import Optional, Dict, Any, List
 from sqlalchemy import (
     Column, String, DateTime, Integer, Float, 
-    Boolean, ForeignKey, func, JSON
+    Boolean, ForeignKey, func, JSON, Text
 )
 from sqlalchemy.dialects.postgresql import UUID
 from pgvector.sqlalchemy import Vector
@@ -86,6 +86,12 @@ class Grade(Base):
         nullable=True,
         comment="Marks awarded by AI (nullable if not yet graded)"
     )
+
+    ai_awarded_marks = Column(
+        Integer,
+        nullable=True,
+        comment="Original AI marks. Immutable audit field."
+    )
     
     max_marks = Column(
         Integer,
@@ -99,17 +105,38 @@ class Grade(Base):
         comment="""JSONB array of criterion results.
         Structure: [{"id": "c1", "awarded": 3, "justification": "..."}]"""
     )
+
+    ai_criteria_breakdown = Column(
+        JSON,
+        nullable=False,
+        default=list,
+        comment="Original AI criteria breakdown. Immutable audit field."
+    )
     
     justification = Column(
         String(2000),
         nullable=False,
         comment="Human-readable explanation of the grade (for TA dashboard)"
     )
+
+    ai_justification = Column(
+        Text,
+        nullable=False,
+        default="",
+        comment="Original AI justification. Immutable audit field."
+    )
     
     confidence_score = Column(
         Float,
         nullable=False,
         comment="AI confidence in grade (0-1)"
+    )
+
+    ai_confidence_score = Column(
+        Float,
+        nullable=False,
+        default=0.0,
+        comment="Original AI confidence score. Immutable audit field."
     )
     
     plagiarism_flag = Column(
@@ -131,6 +158,25 @@ class Grade(Base):
         default=TAStatus.PENDING.value,
         nullable=False,
         comment="TA decision: pending, approved, or overridden"
+    )
+
+    ta_note = Column(
+        Text,
+        nullable=True,
+        comment="TA note/reason for approval or override."
+    )
+
+    overridden_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="User ID of TA who overrode the grade."
+    )
+
+    overridden_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Timestamp when TA overrode the grade."
     )
     
     embedding = Column(

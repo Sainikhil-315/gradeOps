@@ -14,6 +14,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.dependencies import require_role
 from app.core.supabase import get_db_session
 from app.schemas import RubricCreate, RubricUpdate, RubricResponse, ErrorResponse
 from app.services import RubricService
@@ -31,7 +32,8 @@ router = APIRouter(prefix="/api/rubrics", tags=["rubrics"])
 def create_rubric(
     exam_id: str,
     rubric: RubricCreate,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor")),
 ):
     """
     Create a rubric for an exam.
@@ -70,7 +72,8 @@ def create_rubric(
 )
 def get_rubric_by_exam(
     exam_id: str,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor", "ta")),
 ):
     """
     Get rubric for an exam.
@@ -115,7 +118,8 @@ def get_rubric_by_exam(
 )
 def get_rubric_by_id(
     rubric_id: str,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor", "ta")),
 ):
     """
     Get rubric by ID.
@@ -161,7 +165,8 @@ def get_rubric_by_id(
 def update_rubric(
     rubric_id: str,
     rubric_update: RubricUpdate,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor")),
 ):
     """
     Update a rubric.
@@ -208,7 +213,8 @@ def update_rubric(
 )
 def delete_rubric(
     rubric_id: str,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor")),
 ):
     """
     Delete a rubric.

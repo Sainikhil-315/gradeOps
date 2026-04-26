@@ -74,7 +74,12 @@ class ExportService:
             raise
     
     @staticmethod
-    def generate_csv(db: Session, exam_id: UUID) -> str:
+    def generate_csv(
+        db: Session,
+        exam_id: UUID,
+        include_justifications: bool = False,
+        include_plagiarism: bool = False,
+    ) -> str:
         """
         Generate CSV string from grades.
         
@@ -94,16 +99,23 @@ class ExportService:
             
             # Create CSV
             output = StringIO()
-            fieldnames = [
-                "student_name", "roll_number", "question_id", 
-                "awarded_marks", "max_marks", "percentage", 
-                "justification", "ta_status", "plagiarism_flag", 
-                "confidence_score", "created_at"
-            ]
+            fieldnames = ["student_name", "roll_number", "question_id", "awarded_marks", "max_marks", "percentage", "ta_status", "confidence_score", "created_at"]
+            if include_justifications:
+                fieldnames.append("justification")
+            if include_plagiarism:
+                fieldnames.append("plagiarism_flag")
             
             writer = csv.DictWriter(output, fieldnames=fieldnames)
             writer.writeheader()
-            writer.writerows(export_data)
+            normalized_rows = []
+            for row in export_data:
+                reduced = dict(row)
+                if not include_justifications:
+                    reduced.pop("justification", None)
+                if not include_plagiarism:
+                    reduced.pop("plagiarism_flag", None)
+                normalized_rows.append(reduced)
+            writer.writerows(normalized_rows)
             
             csv_string = output.getvalue()
             logger.info(f"Generated CSV export for exam: {exam_id}")

@@ -16,6 +16,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
+from app.core.dependencies import require_role
 from app.core.supabase import get_db_session
 from app.models import Exam, ExamStatus
 from app.schemas import (
@@ -41,6 +42,7 @@ def create_exam(
     exam: ExamCreate,
     instructor_id: str = Query(..., description="Instructor UUID"),
     db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor")),
 ):
     """
     Create a new exam.
@@ -89,7 +91,7 @@ def create_exam(
 
 @router.get(
     "",
-    response_model=list[ExamListResponse],
+    response_model=ExamListResponse,
 )
 def list_exams(
     instructor_id: str = Query(..., description="Instructor UUID"),
@@ -97,6 +99,7 @@ def list_exams(
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor")),
 ):
     """
     List exams for instructor.
@@ -113,11 +116,13 @@ def list_exams(
     """
     try:
         instructor_uuid = UUID(instructor_id)
-        exams = ExamService.list_exams(
+        exams = ExamService.get_exams_by_instructor(
             db, instructor_uuid, status_filter, limit, offset
         )
-
-        return [ExamListResponse.model_validate(exam) for exam in exams]
+        return ExamListResponse(
+            exams=[ExamResponse.model_validate(exam) for exam in exams],
+            total=len(exams),
+        )
 
     except ValueError:
         raise HTTPException(
@@ -139,6 +144,7 @@ def list_exams(
 def get_exam(
     exam_id: str,
     db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor", "ta")),
 ):
     """
     Get exam details.
@@ -152,7 +158,7 @@ def get_exam(
     """
     try:
         exam_uuid = UUID(exam_id)
-        exam = ExamService.get_exam(db, exam_uuid)
+        exam = ExamService.get_exam_by_id(db, exam_uuid)
 
         if not exam:
             raise HTTPException(
@@ -185,6 +191,7 @@ def update_exam(
     exam_id: str,
     exam_update: ExamUpdate,
     db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor")),
 ):
     """
     Update exam details.
@@ -239,6 +246,7 @@ def update_exam(
 def delete_exam(
     exam_id: str,
     db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor")),
 ):
     """
     Delete an exam and all associated data (rubrics, submissions, grades).
@@ -286,6 +294,7 @@ def delete_exam(
 def get_exam_stats(
     exam_id: str,
     db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor", "ta")),
 ):
     """
     Get exam grading statistics.

@@ -74,7 +74,9 @@ class ExamService:
     def get_exams_by_instructor(
         db: Session, 
         instructor_id: UUID, 
-        status: Optional[str] = None
+        status: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
     ) -> List[Exam]:
         """
         Get all exams for an instructor, optionally filtered by status.
@@ -91,7 +93,7 @@ class ExamService:
             query = db.query(Exam).filter(Exam.instructor_id == instructor_id)
             if status:
                 query = query.filter(Exam.status == status)
-            return query.order_by(Exam.created_at.desc()).all()
+            return query.order_by(Exam.created_at.desc()).offset(offset).limit(limit).all()
         except Exception as e:
             logger.error(f"Error retrieving instructor exams: {str(e)}")
             raise

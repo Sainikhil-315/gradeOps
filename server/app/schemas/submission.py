@@ -20,12 +20,12 @@ class SubmissionBase(BaseModel):
     """Base submission schema."""
     student_name: Optional[str] = Field(None, max_length=255, description="Student name")
     roll_number: Optional[str] = Field(None, max_length=50, description="Student roll number")
-    pdf_url: str = Field(..., description="URL to PDF in Supabase Storage")
+    pdf_url: Optional[str] = Field(None, description="URL to PDF in Supabase Storage")
 
 
 class SubmissionCreate(SubmissionBase):
     """Schema for creating a submission."""
-    exam_id: str = Field(..., description="Exam UUID")
+    pass
 
 
 class SubmissionUpdate(BaseModel):

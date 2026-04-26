@@ -13,6 +13,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 import io
 
+from app.core.dependencies import require_role
 from app.core.supabase import get_db_session
 from app.services import ExportService
 
@@ -33,7 +34,8 @@ def export_grades_csv(
     exam_id: str,
     include_justifications: bool = False,
     include_plagiarism: bool = False,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor")),
 ):
     """
     Export exam grades as CSV.
@@ -100,7 +102,8 @@ def export_grades_csv(
 )
 def get_export_summary(
     exam_id: str,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("instructor")),
 ):
     """
     Get comprehensive summary report for exam.
@@ -122,7 +125,7 @@ def get_export_summary(
     try:
         exam_uuid = UUID(exam_id)
         
-        summary = ExportService.generate_summary(db, exam_uuid)
+        summary = ExportService.get_exam_summary(db, exam_uuid)
         
         if not summary:
             raise HTTPException(

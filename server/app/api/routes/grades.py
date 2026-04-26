@@ -15,6 +15,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
+from app.core.dependencies import get_current_user, require_role
 from app.core.supabase import get_db_session
 from app.schemas import (
     GradeResponse,
@@ -39,7 +40,8 @@ def get_grade_queue(
     priority: str = Query(None, description="Filter by priority (high, medium, low)"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("ta")),
 ):
     """
     Get pending grades for TA review.
@@ -120,7 +122,8 @@ def get_grade_queue(
 )
 def get_exam_grading_stats(
     exam_id: str,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("ta", "instructor")),
 ):
     """
     Get grading statistics for an exam.
@@ -169,7 +172,8 @@ def get_exam_grading_stats(
 )
 def get_grade(
     grade_id: str,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("ta", "instructor")),
 ):
     """
     Get grade details.
@@ -183,7 +187,7 @@ def get_grade(
     """
     try:
         grade_uuid = UUID(grade_id)
-        grade = GradeService.get_grade(db, grade_uuid)
+        grade = GradeService.get_grade_by_id(db, grade_uuid)
         
         if not grade:
             raise HTTPException(
@@ -215,7 +219,9 @@ def get_grade(
 def approve_grade(
     grade_id: str,
     approval: GradeApprove,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+    _user=Depends(require_role("ta")),
 ):
     """
     Approve a grade by TA.
@@ -232,7 +238,7 @@ def approve_grade(
     """
     try:
         grade_uuid = UUID(grade_id)
-        grade = GradeService.approve_grade(db, grade_uuid, approval.feedback)
+        grade = GradeService.approve_grade(db, grade_uuid, approval.feedback, current_user.id)
         
         if not grade:
             raise HTTPException(
@@ -265,7 +271,9 @@ def approve_grade(
 def override_grade(
     grade_id: str,
     override: GradeOverride,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+    _user=Depends(require_role("ta")),
 ):
     """
     Override a grade with TA-adjusted marks.
@@ -287,7 +295,8 @@ def override_grade(
             db,
             grade_uuid,
             override.criteria_breakdown,
-            override.reason
+            override.reason,
+            current_user.id,
         )
         
         if not grade:
@@ -321,7 +330,8 @@ def override_grade(
 )
 def get_grades_for_answer_region(
     answer_region_id: str,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    _user=Depends(require_role("ta", "instructor")),
 ):
     """
     Get all grades for an answer region.

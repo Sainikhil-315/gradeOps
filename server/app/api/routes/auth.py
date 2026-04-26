@@ -10,10 +10,14 @@ Endpoints:
 
 import logging
 from typing import Optional
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from uuid import UUID
+import jwt
 
+from app.core.config import settings
+from app.core.dependencies import get_current_user as get_authenticated_user
 from app.core.supabase import get_db_session
 from app.models import UserRole
 from app.schemas import (
@@ -23,7 +27,7 @@ from app.services import UserService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 @router.post(
@@ -112,11 +116,16 @@ def login(
             )
         
         # In production, generate JWT token here
-        # For now, return user data and a placeholder token
+        expires = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        token = jwt.encode(
+            {"sub": str(user.id), "role": user.role.value, "exp": expires},
+            settings.SECRET_KEY,
+            algorithm=settings.ALGORITHM,
+        )
         logger.info(f"User logged in: {email}")
         return {
             "user": UserResponse.model_validate(user),
-            "token": f"token_{user.id}",  # Placeholder
+            "token": token,
         }
         
     except HTTPException:
@@ -169,9 +178,8 @@ def list_users(
         401: {"model": ErrorResponse, "description": "User not found"},
     }
 )
-def get_current_user(
-    user_id: str,  # In production, extract from JWT token
-    db: Session = Depends(get_db_session)
+def get_me(
+    current_user=Depends(get_authenticated_user),
 ):
     """
     Get current authenticated user.
@@ -187,23 +195,7 @@ def get_current_user(
         HTTPException 401: If user not found
     """
     try:
-        user = UserService.get_user_by_id(db, UUID(user_id))
-        
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found"
-            )
-        
-        return UserResponse.model_validate(user)
-        
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid user ID format"
-        )
-    except HTTPException:
-        raise
+        return UserResponse.model_validate(current_user)
     except Exception as e:
         logger.error(f"Error getting current user: {str(e)}")
         raise HTTPException(

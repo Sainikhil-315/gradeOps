@@ -1,3 +1,6 @@
+from functools import wraps
+from typing import Callable
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthCredentials
 from app.core.config import settings
@@ -55,9 +58,23 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"JWT verification error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials"
         )
+
+
+def require_role(*allowed_roles: str):
+    async def _role_guard(user=Depends(get_current_user)):
+        if user.role.value not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied for role {user.role.value}",
+            )
+        return user
+
+    return _role_guard
