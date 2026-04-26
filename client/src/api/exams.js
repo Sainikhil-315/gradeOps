@@ -1,1 +1,58 @@
-// Exam API calls
+import apiClient from './client';
+
+/**
+ * Exam API endpoints
+ */
+export const examsAPI = {
+  /**
+   * List all exams for current user
+   */
+  listExams: async (limit = 20, offset = 0) => {
+    const response = await apiClient.get('/api/exams', {
+      params: { limit, offset },
+    });
+    return response.data;
+  },
+
+  /**
+   * Get exam by ID
+   */
+  getExam: async (examId) => {
+    const response = await apiClient.get(`/api/exams/${examId}`);
+    return response.data;
+  },
+
+  /**
+   * Create new exam
+   */
+  createExam: async (title) => {
+    const response = await apiClient.post('/api/exams', { title });
+    return response.data;
+  },
+
+  /**
+   * Update exam
+   */
+  updateExam: async (examId, updates) => {
+    const response = await apiClient.patch(`/api/exams/${examId}`, updates);
+    return response.data;
+  },
+
+  /**
+   * Delete exam
+   */
+  deleteExam: async (examId) => {
+    const response = await apiClient.delete(`/api/exams/${examId}`);
+    return response.data;
+  },
+
+  /**
+   * Get exam stats (for instructor dashboard)
+   */
+  getExamStats: async (examId) => {
+    const response = await apiClient.get(`/api/exams/${examId}/stats`);
+    return response.data;
+  },
+};
+
+export default examsAPI;
