@@ -33,7 +33,7 @@ langchain>=0.2.0
 langchain-openai>=0.1.0
 openai>=1.0.0
 anthropic>=0.39.0
-sentence-transformers==2.2.2
+sentence-transformers>=2.7.0
 torch
 numpy>=1.0.0,<2.0.0
 
