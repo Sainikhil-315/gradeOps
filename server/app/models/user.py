@@ -9,7 +9,7 @@ For API validation, use schemas/user.py
 from datetime import datetime
 from enum import Enum
 from typing import Optional
-from sqlalchemy import Column, String, DateTime, Enum as SQLEnum, func
+from sqlalchemy import Column, String, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 
@@ -63,7 +63,7 @@ class User(Base):
     )
     
     role = Column(
-        SQLEnum(UserRole),
+        String(20),
         nullable=False,
         comment="User role: instructor or ta"
     )

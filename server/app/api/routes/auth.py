@@ -32,7 +32,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post(
     "/register",
-    response_model=UserResponse,
+    response_model=dict,
     status_code=status.HTTP_201_CREATED,
     responses={
         400: {"model": ErrorResponse, "description": "Email already exists"},
@@ -43,21 +43,7 @@ def register(
     user: UserCreate,
     db: Session = Depends(get_db_session)
 ):
-    """
-    Register a new user (instructor or TA).
-    
-    Args:
-        user: UserCreate with email and role
-        db: Database session
-        
-    Returns:
-        Created UserResponse
-        
-    Raises:
-        HTTPException 400: If email already exists
-    """
     try:
-        # Check if email already exists
         existing_user = UserService.get_user_by_email(db, user.email)
         if existing_user:
             logger.warning(f"Registration attempted with existing email: {user.email}")
@@ -65,22 +51,36 @@ def register(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Email {user.email} is already registered"
             )
-        
-        # Create user
+
         db_user = UserService.create_user(db, user)
-        
+
+        expires = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        token = jwt.encode(
+            {"sub": str(db_user.id), "role": str(db_user.role), "exp": expires},
+            settings.SECRET_KEY,
+            algorithm=settings.ALGORITHM,
+        )
+
         logger.info(f"User registered: {db_user.email} ({db_user.role})")
-        return UserResponse.model_validate(db_user)
-        
+        return {
+            "user": UserResponse.model_validate(db_user),
+            "access_token": token,
+        }
+
     except HTTPException:
         raise
+    except ValueError as e:
+        logger.warning(f"Registration conflict: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
         logger.error(f"Registration error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to register user"
         )
-
 
 @router.post(
     "/login",
@@ -128,7 +128,7 @@ def login(
         # Generate JWT token
         expires = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         token = jwt.encode(
-            {"sub": str(user.id), "role": user.role.value, "exp": expires},
+            {"sub": str(user.id), "role": str(user.role), "exp": expires},
             settings.SECRET_KEY,
             algorithm=settings.ALGORITHM,
         )

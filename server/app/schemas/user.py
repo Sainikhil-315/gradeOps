@@ -15,6 +15,7 @@ Example:
 from typing import Optional
 from datetime import datetime
 from enum import Enum
+from uuid import UUID
 from pydantic import BaseModel, Field, EmailStr, field_validator
 
 
@@ -53,13 +54,18 @@ class UserUpdate(BaseModel):
 
 
 class UserResponse(UserBase):
-    """Schema for user API response."""
     id: str = Field(..., description="User UUID")
     created_at: datetime = Field(..., description="When user was created")
     updated_at: datetime = Field(..., description="When user was last updated")
     
     class Config:
-        from_attributes = True  # Support ORM models
+        from_attributes = True
+        json_encoders = {UUID: str}
+    
+    @field_validator("id", mode="before")
+    @classmethod
+    def coerce_id_to_str(cls, v):
+        return str(v)
 
 
 class UserListResponse(BaseModel):

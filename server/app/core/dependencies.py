@@ -70,10 +70,12 @@ async def get_current_user(
 
 def require_role(*allowed_roles: str):
     async def _role_guard(user=Depends(get_current_user)):
-        if user.role.value not in allowed_roles:
+        # user.role can be either an enum or string, handle both
+        user_role = user.role.value if hasattr(user.role, 'value') else str(user.role)
+        if user_role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied for role {user.role.value}",
+                detail=f"Access denied for role {user_role}",
             )
         return user
 

@@ -1,4 +1,5 @@
 import apiClient from './client';
+import { useAuthStore } from '../store/authStore';
 
 /**
  * Exam API endpoints
@@ -8,8 +9,13 @@ export const examsAPI = {
    * List all exams for current user
    */
   listExams: async (limit = 20, offset = 0) => {
+    const user = useAuthStore.getState().user;
     const response = await apiClient.get('/api/exams', {
-      params: { limit, offset },
+      params: { 
+        instructor_id: user?.id,
+        limit, 
+        offset 
+      },
     });
     return response.data;
   },
@@ -26,7 +32,15 @@ export const examsAPI = {
    * Create new exam
    */
   createExam: async (title) => {
-    const response = await apiClient.post('/api/exams', { title });
+    const user = useAuthStore.getState().user;
+    const response = await apiClient.post('/api/exams', 
+      { title },
+      {
+        params: {
+          instructor_id: user?.id,
+        }
+      }
+    );
     return response.data;
   },
 

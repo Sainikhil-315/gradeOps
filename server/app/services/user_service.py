@@ -46,7 +46,7 @@ class UserService:
             db_user = User(
                 email=user.email.lower(),
                 password_hash=password_hash,
-                role=user.role
+                role=user.role.value
             )
             db.add(db_user)
             db.commit()
@@ -56,10 +56,12 @@ class UserService:
             
         except IntegrityError as e:
             db.rollback()
+            db.expire_all()
             logger.error(f"Email already exists: {user.email}")
             raise ValueError(f"Email {user.email} already registered")
         except Exception as e:
             db.rollback()
+            db.expire_all()
             logger.error(f"Error creating user: {str(e)}")
             raise
     
