@@ -15,11 +15,12 @@ class PipelineJobStatus(str, Enum):
 
 class PipelineJob(Base):
     __tablename__ = "pipeline_jobs"
+    __table_args__ = {"schema": "public"}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
     submission_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("submissions.id", ondelete="CASCADE"),
+        ForeignKey("public.submissions.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

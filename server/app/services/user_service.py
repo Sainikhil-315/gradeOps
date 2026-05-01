@@ -5,6 +5,7 @@ Handles:
 - User creation and authentication
 - Role management
 - User retrieval and updates
+- Password hashing and verification
 """
 
 import logging
@@ -15,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.models import User, UserRole
 from app.schemas import UserCreate, UserUpdate, UserResponse
+from app.core.security import hash_password, verify_password
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,7 @@ class UserService:
         
         Args:
             db: Database session
-            user: UserCreate schema with email and role
+            user: UserCreate schema with email, password and role
             
         Returns:
             Created User object
@@ -38,8 +40,12 @@ class UserService:
             ValueError: If email already exists
         """
         try:
+            # Hash the password
+            password_hash = hash_password(user.password)
+            
             db_user = User(
                 email=user.email.lower(),
+                password_hash=password_hash,
                 role=user.role
             )
             db.add(db_user)
@@ -77,6 +83,37 @@ class UserService:
         except Exception as e:
             logger.error(f"Error retrieving user by email: {str(e)}")
             raise
+    
+    @staticmethod
+    def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
+        """
+        Authenticate user by email and password.
+        
+        Args:
+            db: Database session
+            email: User email
+            password: Plain text password to verify
+            
+        Returns:
+            User object if credentials are valid, None otherwise
+        """
+        try:
+            user = UserService.get_user_by_email(db, email)
+            if not user:
+                logger.warning(f"Authentication failed: User {email} not found")
+                return None
+            
+            # Verify password
+            if not verify_password(password, user.password_hash):
+                logger.warning(f"Authentication failed: Invalid password for {email}")
+                return None
+            
+            logger.info(f"User authenticated successfully: {email}")
+            return user
+            
+        except Exception as e:
+            logger.error(f"Error authenticating user: {str(e)}")
+            return None
     
     @staticmethod
     def get_user_by_id(db: Session, user_id: UUID) -> Optional[User]:

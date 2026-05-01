@@ -48,6 +48,7 @@ class Rubric(Base):
         updated_at: When rubric was last modified
     """
     __tablename__ = "rubrics"
+    __table_args__ = {"schema": "public"}
 
     id = Column(
         UUID(as_uuid=True),
@@ -59,7 +60,7 @@ class Rubric(Base):
     
     exam_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("exams.id", ondelete="CASCADE"),
+        ForeignKey("public.exams.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,  # One rubric per exam
         index=True,

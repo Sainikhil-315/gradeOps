@@ -46,6 +46,7 @@ class Submission(Base):
         - student_name and roll_number may be filled after OCR analysis
     """
     __tablename__ = "submissions"
+    __table_args__ = {"schema": "public"}
 
     id = Column(
         UUID(as_uuid=True),
@@ -57,7 +58,7 @@ class Submission(Base):
     
     exam_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("exams.id", ondelete="CASCADE"),
+        ForeignKey("public.exams.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
         comment="FK to exam"

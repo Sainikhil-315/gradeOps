@@ -43,6 +43,7 @@ class Exam(Base):
         updated_at: When exam was last modified
     """
     __tablename__ = "exams"
+    __table_args__ = {"schema": "public"}
 
     id = Column(
         UUID(as_uuid=True),
@@ -54,7 +55,7 @@ class Exam(Base):
     
     instructor_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
+        ForeignKey("public.users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
         comment="FK to instructor who created this exam"

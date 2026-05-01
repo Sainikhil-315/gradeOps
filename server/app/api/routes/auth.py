@@ -90,32 +90,42 @@ def register(
     }
 )
 def login(
-    email: str,
+    credentials: dict,
     db: Session = Depends(get_db_session)
 ):
     """
-    Login user (simplified - in production use JWT/OAuth).
+    Login user with email and password.
     
     Args:
-        email: User email
+        credentials: Dict with email and password
         db: Database session
         
     Returns:
         User data with auth token
         
     Raises:
-        HTTPException 401: If user not found
+        HTTPException 401: If credentials invalid
     """
     try:
-        user = UserService.get_user_by_email(db, email)
+        email = credentials.get("email")
+        password = credentials.get("password")
+        
+        if not email or not password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email and password are required"
+            )
+        
+        # Authenticate user
+        user = UserService.authenticate_user(db, email, password)
         if not user:
-            logger.warning(f"Login attempt for non-existent user: {email}")
+            logger.warning(f"Login failed for: {email}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid credentials"
             )
         
-        # In production, generate JWT token here
+        # Generate JWT token
         expires = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         token = jwt.encode(
             {"sub": str(user.id), "role": user.role.value, "exp": expires},
@@ -125,7 +135,7 @@ def login(
         logger.info(f"User logged in: {email}")
         return {
             "user": UserResponse.model_validate(user),
-            "token": token,
+            "access_token": token,
         }
         
     except HTTPException:

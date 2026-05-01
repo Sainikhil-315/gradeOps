@@ -38,6 +38,7 @@ class User(Base):
         - Role must be one of: 'instructor', 'ta'
     """
     __tablename__ = "users"
+    __table_args__ = {"schema": "public"}
 
     id = Column(
         UUID(as_uuid=True),
@@ -53,6 +54,12 @@ class User(Base):
         nullable=False,
         index=True,
         comment="User email (must be unique)"
+    )
+    
+    password_hash = Column(
+        String(255),
+        nullable=False,
+        comment="Hashed password using bcrypt"
     )
     
     role = Column(

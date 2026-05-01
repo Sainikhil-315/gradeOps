@@ -63,6 +63,7 @@ class Grade(Base):
         - awarded_marks <= max_marks
     """
     __tablename__ = "grades"
+    __table_args__ = {"schema": "public"}
 
     id = Column(
         UUID(as_uuid=True),
@@ -74,7 +75,7 @@ class Grade(Base):
     
     answer_region_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("answer_regions.id", ondelete="CASCADE"),
+        ForeignKey("public.answer_regions.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,  # One grade per answer region
         index=True,

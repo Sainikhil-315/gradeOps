@@ -48,6 +48,7 @@ class AnswerRegion(Base):
         - extracted_text filled after OCR (initially nullable)
     """
     __tablename__ = "answer_regions"
+    __table_args__ = {"schema": "public"}
 
     id = Column(
         UUID(as_uuid=True),
@@ -59,7 +60,7 @@ class AnswerRegion(Base):
     
     submission_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("submissions.id", ondelete="CASCADE"),
+        ForeignKey("public.submissions.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
         comment="FK to submissions"

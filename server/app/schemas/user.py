@@ -32,6 +32,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     """Schema for creating a new user."""
+    password: str = Field(..., min_length=6, description="User password (min 6 chars)")
     
     @field_validator("email")
     @classmethod
