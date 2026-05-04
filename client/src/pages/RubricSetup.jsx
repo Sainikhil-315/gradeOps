@@ -67,13 +67,12 @@ export default function RubricSetup() {
     setIsSaving(true)
     try {
       const rubricData = {
-        title,
-        max_marks: criteriaTotal,
         criteria: criteria.map((c) => ({
-          name: c.name,
-          max_marks: parseInt(c.maxMarks),
+          id: c.name,  // Use name as the criterion ID
+          marks: parseInt(c.maxMarks),
           description: c.description,
         })),
+        max_marks: criteriaTotal,
       }
 
       await rubricsAPI.createRubric(examId, rubricData)
@@ -84,7 +83,12 @@ export default function RubricSetup() {
         navigate('/dashboard')
       }, 1000)
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to save rubric')
+      // Handle both validation errors and detail errors
+      const errorMessage = error.response?.data?.detail || 
+                          (Array.isArray(error.response?.data) ? 
+                            error.response.data.map(e => e.msg).join(', ') :
+                            'Failed to save rubric')
+      toast.error(errorMessage)
     } finally {
       setIsSaving(false)
     }

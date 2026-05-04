@@ -8,7 +8,7 @@ For API validation, use schemas/submission.py
 
 from datetime import datetime
 from enum import Enum
-from sqlalchemy import Column, String, DateTime, Enum as SQLEnum, func, ForeignKey
+from sqlalchemy import Column, String, DateTime, func, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 
@@ -83,8 +83,8 @@ class Submission(Base):
     )
     
     status = Column(
-        SQLEnum(SubmissionStatus),
-        default=SubmissionStatus.UPLOADED,
+        String(20),
+        default=SubmissionStatus.UPLOADED.value,
         nullable=False,
         comment="Current processing status"
     )

@@ -27,7 +27,7 @@ class PipelineService:
 
     @staticmethod
     def enqueue_job(db: Session, submission_id: UUID) -> PipelineJob:
-        job = PipelineJob(submission_id=submission_id, status=PipelineJobStatus.QUEUED)
+        job = PipelineJob(submission_id=submission_id, status=PipelineJobStatus.QUEUED.value)
         db.add(job)
         db.commit()
         db.refresh(job)
@@ -53,14 +53,14 @@ class PipelineService:
     async def process_next_job(db: Session) -> bool:
         job = (
             db.query(PipelineJob)
-            .filter(PipelineJob.status == PipelineJobStatus.QUEUED)
+            .filter(PipelineJob.status == PipelineJobStatus.QUEUED.value)
             .order_by(PipelineJob.created_at.asc())
             .first()
         )
         if not job:
             return False
 
-        job.status = PipelineJobStatus.RUNNING
+        job.status = PipelineJobStatus.RUNNING.value
         job.started_at = datetime.now(timezone.utc)
         job.attempts += 1
         job.progress = 5
@@ -69,7 +69,7 @@ class PipelineService:
 
         submission = db.query(Submission).filter(Submission.id == job.submission_id).first()
         if not submission:
-            job.status = PipelineJobStatus.FAILED
+            job.status = PipelineJobStatus.FAILED.value
             job.error = "Submission not found"
             job.completed_at = datetime.now(timezone.utc)
             db.commit()
@@ -81,12 +81,12 @@ class PipelineService:
         try:
             await PipelineService._process_submission(db, submission)
             submission.status = SubmissionStatus.GRADED.value
-            job.status = PipelineJobStatus.COMPLETED
+            job.status = PipelineJobStatus.COMPLETED.value
             job.progress = 100
             job.error = None
         except Exception as exc:
             logger.exception("pipeline.failed submission_id=%s", submission.id)
-            job.status = PipelineJobStatus.FAILED
+            job.status = PipelineJobStatus.FAILED.value
             job.error = str(exc)
         finally:
             job.completed_at = datetime.now(timezone.utc)

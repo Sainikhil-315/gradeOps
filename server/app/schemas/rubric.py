@@ -5,6 +5,7 @@ Separate from ORM models (app/models/rubric.py).
 
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from uuid import UUID
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -47,8 +48,8 @@ class RubricUpdate(BaseModel):
 
 class RubricResponse(RubricBase):
     """Schema for rubric API response."""
-    id: str = Field(..., description="Rubric UUID")
-    exam_id: str = Field(..., description="Exam UUID")
+    id: UUID = Field(..., description="Rubric UUID")
+    exam_id: UUID = Field(..., description="Exam UUID")
     created_at: datetime = Field(..., description="When rubric was created")
     updated_at: datetime = Field(..., description="When rubric was last updated")
     

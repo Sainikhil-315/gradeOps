@@ -6,6 +6,7 @@ Separate from ORM models (app/models/submission.py).
 from typing import Optional
 from datetime import datetime
 from enum import Enum
+from uuid import UUID
 from pydantic import BaseModel, Field
 
 
@@ -37,8 +38,8 @@ class SubmissionUpdate(BaseModel):
 
 class SubmissionResponse(SubmissionBase):
     """Schema for submission API response."""
-    id: str = Field(..., description="Submission UUID")
-    exam_id: str = Field(..., description="Exam UUID")
+    id: UUID = Field(..., description="Submission UUID")
+    exam_id: UUID = Field(..., description="Exam UUID")
     status: SubmissionStatusEnum = Field(..., description="Current status")
     created_at: datetime = Field(..., description="When submitted")
     updated_at: datetime = Field(..., description="Last updated")

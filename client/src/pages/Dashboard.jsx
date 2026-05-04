@@ -40,14 +40,14 @@ export default function InstructorDashboard() {
     },
     {
       label: 'Pending Review',
-      value: 16,
+      value: 16, // need to be dynamic
       icon: Clock,
       color: 'bg-yellow-100 dark:bg-yellow-900',
       textColor: 'text-yellow-600 dark:text-yellow-400',
     },
     {
       label: 'Total Submissions',
-      value: 93,
+      value: 93, // need to be dynamic
       icon: BarChart3,
       color: 'bg-green-100 dark:bg-green-900',
       textColor: 'text-green-600 dark:text-green-400',

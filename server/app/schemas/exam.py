@@ -6,7 +6,8 @@ Separate from ORM models (app/models/exam.py).
 from typing import Optional
 from datetime import datetime
 from enum import Enum
-from pydantic import BaseModel, Field, field_validator
+from uuid import UUID
+from pydantic import BaseModel, Field
 
 
 class ExamStatusEnum(str, Enum):
@@ -36,8 +37,8 @@ class ExamUpdate(BaseModel):
 
 class ExamResponse(ExamBase):
     """Schema for exam API response."""
-    id: str = Field(..., description="Exam UUID")
-    instructor_id: str = Field(..., description="Instructor UUID")
+    id: UUID = Field(..., description="Exam UUID")
+    instructor_id: UUID = Field(..., description="Instructor UUID")
     created_at: datetime = Field(..., description="When exam was created")
     updated_at: datetime = Field(..., description="When exam was last updated")
     

@@ -1,6 +1,6 @@
 from enum import Enum
 import uuid
-from sqlalchemy import Column, DateTime, Enum as SQLEnum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 
 from .base import Base
@@ -25,9 +25,9 @@ class PipelineJob(Base):
         index=True,
     )
     status = Column(
-        SQLEnum(PipelineJobStatus),
+        String(20),
         nullable=False,
-        default=PipelineJobStatus.QUEUED,
+        default=PipelineJobStatus.QUEUED.value,
         index=True,
     )
     progress = Column(Integer, nullable=False, default=0)

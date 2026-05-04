@@ -49,7 +49,7 @@ class SubmissionService:
                 student_name=submission.student_name,
                 roll_number=submission.roll_number,
                 pdf_url=submission.pdf_url,
-                status=SubmissionStatus.UPLOADED
+                status=SubmissionStatus.UPLOADED.value
             )
             
             db.add(db_submission)
@@ -173,10 +173,11 @@ class SubmissionService:
             if not submission:
                 return None
             
-            submission.status = new_status
+            # Explicitly convert enum to its string value
+            submission.status = new_status.value if isinstance(new_status, SubmissionStatus) else new_status
             db.commit()
             db.refresh(submission)
-            logger.info(f"Submission {submission_id} status: {new_status}")
+            logger.info(f"Submission {submission_id} status: {submission.status}")
             return submission
             
         except Exception as e:

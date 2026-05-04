@@ -8,7 +8,7 @@ For API validation, use schemas/exam.py
 
 from datetime import datetime
 from enum import Enum
-from sqlalchemy import Column, String, DateTime, Enum as SQLEnum, func, ForeignKey
+from sqlalchemy import Column, String, DateTime, func, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -68,8 +68,8 @@ class Exam(Base):
     )
     
     status = Column(
-        SQLEnum(ExamStatus),
-        default=ExamStatus.DRAFT,
+        String(20),
+        default=ExamStatus.DRAFT.value,
         nullable=False,
         comment="Current status of the exam"
     )

@@ -26,9 +26,8 @@ export const rubricsAPI = {
    * Create new rubric
    */
   createRubric: async (examId, rubricData) => {
-    const response = await apiClient.post('/api/rubrics', {
-      exam_id: examId,
-      ...rubricData,
+    const response = await apiClient.post('/api/rubrics', rubricData, {
+      params: { exam_id: examId },
     });
     return response.data;
   },

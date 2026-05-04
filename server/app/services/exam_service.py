@@ -36,10 +36,13 @@ class ExamService:
             Created Exam object
         """
         try:
+            # Explicitly convert enum to its string value
+            status_value = exam.status.value if exam.status else ExamStatus.DRAFT.value
+            
             db_exam = Exam(
                 instructor_id=instructor_id,
                 title=exam.title,
-                status=exam.status or ExamStatus.DRAFT
+                status=status_value
             )
             db.add(db_exam)
             db.commit()
@@ -131,6 +134,7 @@ class ExamService:
             raise
     
     @staticmethod
+    @staticmethod
     def update_exam_status(
         db: Session, 
         exam_id: UUID, 
@@ -152,10 +156,11 @@ class ExamService:
             if not exam:
                 return None
             
-            exam.status = new_status
+            # Explicitly convert enum to its string value
+            exam.status = new_status.value if isinstance(new_status, ExamStatus) else new_status
             db.commit()
             db.refresh(exam)
-            logger.info(f"Exam {exam_id} status changed to: {new_status}")
+            logger.info(f"Exam {exam_id} status changed to: {exam.status}")
             return exam
         except Exception as e:
             db.rollback()

@@ -11,7 +11,7 @@ Endpoints:
 
 import logging
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import require_role
@@ -30,8 +30,8 @@ router = APIRouter(prefix="/api/rubrics", tags=["rubrics"])
     status_code=status.HTTP_201_CREATED,
 )
 def create_rubric(
-    exam_id: str,
-    rubric: RubricCreate,
+    exam_id: str = Query(..., description="Exam UUID"),
+    rubric: RubricCreate = Body(...),
     db: Session = Depends(get_db_session),
     _user=Depends(require_role("instructor")),
 ):
