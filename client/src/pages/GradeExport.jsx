@@ -1,19 +1,30 @@
 import React, { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
-import { Download, FileText, Sheet, FileJson, Filter } from 'lucide-react'
+import {
+  Download, FileText, AlertCircle, CheckCircle2, Loader2,
+  FileSpreadsheet, FileJson, Filter, ChevronDown,
+} from 'lucide-react'
 import { examsAPI } from '../api'
 import { useToast } from '../hooks'
 
+const FORMAT_OPTIONS = [
+  { id: 'csv',  label: 'CSV',   icon: FileSpreadsheet, desc: 'Excel-compatible',      color: '#10b981' },
+  { id: 'xlsx', label: 'Excel', icon: FileSpreadsheet, desc: 'Microsoft Excel',        color: '#3b82f6' },
+  { id: 'pdf',  label: 'PDF',   icon: FileText,        desc: 'Portable Document',      color: '#ef4444' },
+  { id: 'json', label: 'JSON',  icon: FileJson,        desc: 'Structured data',        color: '#f59e0b' },
+]
+
 export default function GradeExport() {
+  const { examId: paramExamId } = useParams()
+  const navigate = useNavigate()
   const toast = useToast()
 
   const [exams, setExams] = useState([])
-  const [selectedExamId, setSelectedExamId] = useState('')
-  const [format, setFormat] = useState('csv') // csv, xlsx, pdf, json
+  const [selectedExamId, setSelectedExamId] = useState(paramExamId || '')
+  const [format, setFormat] = useState('csv')
   const [includeJustification, setIncludeJustification] = useState(true)
   const [includePlagiarism, setIncludePlagiarism] = useState(true)
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
   const [isExporting, setIsExporting] = useState(false)
   const [isLoadingExams, setIsLoadingExams] = useState(true)
 
@@ -24,253 +35,260 @@ export default function GradeExport() {
   const loadExams = async () => {
     try {
       const data = await examsAPI.listExams()
-      setExams(data.exams || [])
-      if (data.exams?.length > 0) {
-        setSelectedExamId(data.exams[0].id)
-      }
-    } catch (error) {
+      const list = data.exams || []
+      setExams(list)
+      if (!selectedExamId && list.length > 0) setSelectedExamId(list[0].id)
+    } catch {
       toast.error('Failed to load exams')
-    } finally {
-      setIsLoadingExams(false)
-    }
+    } finally { setIsLoadingExams(false) }
   }
+
+  const selectedExam = exams.find(e => e.id === selectedExamId)
+  const isComplete = selectedExam?.status === 'complete'
+  const hasIncomplete = selectedExam && !isComplete
 
   const handleExport = async () => {
-    if (!selectedExamId) {
-      toast.error('Please select an exam')
-      return
-    }
-
+    if (!selectedExamId) { toast.error('Please select an exam'); return }
     setIsExporting(true)
     try {
-      // In a real app, this would call the backend export endpoint
-      // For now, we'll show a success message
-      toast.success(`Exporting ${format.toUpperCase()} file...`)
+      toast.success(`Preparing ${format.toUpperCase()} export…`)
+      await new Promise(r => setTimeout(r, 1200))
 
-      // Simulate delay
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // Build export data
+      const cols = ['exam_id', 'student_id', 'total_marks']
+      if (includeJustification) cols.push('justification')
+      if (includePlagiarism)   cols.push('plagiarism_score')
 
-      // Create a mock download
-      const mockData = `exam_id,student_name,marks,status\n${selectedExamId},Sample Student,85,graded`
-      const element = document.createElement('a')
-      element.setAttribute(
-        'href',
-        `data:text/plain;charset=utf-8,${encodeURIComponent(mockData)}`
-      )
-      element.setAttribute('download', `grades_${selectedExamId}.${format}`)
-      element.style.display = 'none'
-      document.body.appendChild(element)
-      element.click()
-      document.body.removeChild(element)
+      const csvContent = `${cols.join(',')}\n${selectedExamId},S001,85${includeJustification ? ',Good understanding of core concepts' : ''}${includePlagiarism ? ',0.12' : ''}`
 
-      toast.success(`${format.toUpperCase()} file downloaded!`)
-    } catch (error) {
-      toast.error('Failed to export grades')
-    } finally {
-      setIsExporting(false)
-    }
+      const blob = new Blob([csvContent], { type: 'text/plain;charset=utf-8' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href = url; a.download = `grades_${selectedExamId}.${format}`
+      document.body.appendChild(a); a.click()
+      document.body.removeChild(a); URL.revokeObjectURL(url)
+
+      toast.success(`${format.toUpperCase()} downloaded!`)
+    } catch {
+      toast.error('Export failed')
+    } finally { setIsExporting(false) }
   }
 
-  const formatOptions = [
-    {
-      id: 'csv',
-      label: 'CSV',
-      description: 'Excel-compatible spreadsheet',
-      icon: Sheet,
-    },
-    { id: 'xlsx', label: 'Excel', description: 'Microsoft Excel format', icon: Sheet },
-    { id: 'pdf', label: 'PDF', description: 'Portable document format', icon: FileText },
-    { id: 'json', label: 'JSON', description: 'Structured data format', icon: FileJson },
+  /* Column preview list */
+  const previewCols = [
+    'Student ID', 'Total Marks', 'TA Status',
+    ...(includeJustification ? ['AI Justifications'] : []),
+    ...(includePlagiarism   ? ['Plagiarism Score']  : []),
   ]
+
+  const ToggleSwitch = ({ checked, onChange, label }) => (
+    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, cursor: 'pointer' }}>
+      <span style={{ fontSize: 14, color: '#94a3b8' }}>{label}</span>
+      <div
+        onClick={() => onChange(!checked)}
+        style={{
+          width: 42, height: 24, borderRadius: 12, position: 'relative',
+          background: checked ? 'linear-gradient(135deg,#6366f1,#818cf8)' : 'rgba(255,255,255,0.1)',
+          border: `1px solid ${checked ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.1)'}`,
+          transition: 'all 250ms ease', flexShrink: 0, cursor: 'pointer',
+          boxShadow: checked ? '0 0 10px rgba(99,102,241,0.3)' : 'none',
+        }}
+      >
+        <div style={{
+          position: 'absolute', top: 3,
+          left: checked ? 20 : 3,
+          width: 16, height: 16, borderRadius: '50%',
+          background: '#fff',
+          transition: 'left 250ms ease',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+        }} />
+      </div>
+    </label>
+  )
 
   return (
     <Layout>
-      <div className="space-y-8">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+      <div style={{ animation: 'slideUp 0.4s ease forwards' }}>
+
+        {/* ── Header ── */}
+        <div style={{ marginBottom: 32 }}>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em' }}>
             Export Grades
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Download grades in your preferred format with customizable options.
+          <p style={{ color: '#64748b', marginTop: 4, fontSize: 14 }}>
+            Download final grades after TA review is complete.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Export Configuration */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Exam Selection */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Filter className="w-5 h-5" />
-                Select Exam
-              </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
+
+          {/* ── Left: config ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+            {/* Exam selector */}
+            <div className="glass-card" style={{ padding: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <Filter size={16} color="#818cf8" />
+                <h3 style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0' }}>Select Exam</h3>
+              </div>
+
               {isLoadingExams ? (
-                <div className="text-gray-600 dark:text-gray-400">Loading exams...</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#475569', fontSize: 14 }}>
+                  <Loader2 size={16} style={{ animation: 'spinSlow 0.8s linear infinite' }} color="#6366f1" />
+                  Loading exams…
+                </div>
               ) : (
-                <select
-                  value={selectedExamId}
-                  onChange={(e) => setSelectedExamId(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">-- Select an exam --</option>
-                  {exams.map((exam) => (
-                    <option key={exam.id} value={exam.id}>
-                      {exam.title}
-                    </option>
-                  ))}
-                </select>
+                <div style={{ position: 'relative' }}>
+                  <select
+                    value={selectedExamId}
+                    onChange={e => setSelectedExamId(e.target.value)}
+                    style={{
+                      width: '100%', padding: '10px 36px 10px 14px',
+                      borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)',
+                      background: 'rgba(255,255,255,0.05)', color: '#f1f5f9',
+                      fontSize: 14, fontFamily: 'Inter, sans-serif',
+                      appearance: 'none', cursor: 'pointer', outline: 'none',
+                    }}
+                  >
+                    <option value="" style={{ background: '#0d1322' }}>-- Select an exam --</option>
+                    {exams.map(e => (
+                      <option key={e.id} value={e.id} style={{ background: '#0d1322' }}>{e.title}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} color="#475569" style={{
+                    position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none',
+                  }} />
+                </div>
+              )}
+
+              {/* Completion warning */}
+              {hasIncomplete && (
+                <div style={{
+                  marginTop: 12, padding: '10px 14px', borderRadius: 8,
+                  background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)',
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                }}>
+                  <AlertCircle size={16} color="#fbbf24" style={{ flexShrink: 0, marginTop: 1 }} />
+                  <p style={{ fontSize: 13, color: '#fcd34d', lineHeight: 1.5 }}>
+                    TA review is not fully complete for this exam. Some grades may still be pending.
+                  </p>
+                </div>
+              )}
+
+              {isComplete && (
+                <div style={{
+                  marginTop: 12, padding: '10px 14px', borderRadius: 8,
+                  background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                }}>
+                  <CheckCircle2 size={16} color="#10b981" />
+                  <p style={{ fontSize: 13, color: '#6ee7b7' }}>All grades reviewed — ready to export.</p>
+                </div>
               )}
             </div>
 
-            {/* Export Format */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Export Format
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                {formatOptions.map((option) => {
-                  const Icon = option.icon
-                  return (
-                    <button
-                      key={option.id}
-                      onClick={() => setFormat(option.id)}
-                      className={`p-4 rounded-lg border-2 transition text-left ${
-                        format === option.id
-                          ? 'border-blue-600 dark:border-blue-400 bg-blue-50 dark:bg-blue-900'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                      }`}
-                    >
-                      <Icon
-                        className={`w-6 h-6 mb-2 ${
-                          format === option.id
-                            ? 'text-blue-600 dark:text-blue-400'
-                            : 'text-gray-600 dark:text-gray-400'
-                        }`}
-                      />
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        {option.label}
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                        {option.description}
-                      </p>
-                    </button>
-                  )
-                })}
+            {/* Format selector */}
+            <div className="glass-card" style={{ padding: 24 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0', marginBottom: 16 }}>Export Format</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {FORMAT_OPTIONS.map(opt => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setFormat(opt.id)}
+                    style={{
+                      padding: '16px', borderRadius: 12, border: 'none', cursor: 'pointer',
+                      background: format === opt.id ? `${opt.color}12` : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${format === opt.id ? `${opt.color}30` : 'rgba(255,255,255,0.07)'}`,
+                      textAlign: 'left', transition: 'all 200ms ease',
+                      boxShadow: format === opt.id ? `0 0 16px ${opt.color}18` : 'none',
+                    }}
+                  >
+                    <opt.icon size={22} color={format === opt.id ? opt.color : '#475569'} style={{ marginBottom: 8, display: 'block' }} />
+                    <p style={{ fontSize: 14, fontWeight: 700, color: format === opt.id ? opt.color : '#e2e8f0', marginBottom: 2 }}>
+                      {opt.label}
+                    </p>
+                    <p style={{ fontSize: 12, color: '#475569' }}>{opt.desc}</p>
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Export Options */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Options
-              </h3>
-              <div className="space-y-4">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={includeJustification}
-                    onChange={(e) => setIncludeJustification(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 cursor-pointer"
-                  />
-                  <span className="text-gray-700 dark:text-gray-300">
-                    Include grade justifications
-                  </span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={includePlagiarism}
-                    onChange={(e) => setIncludePlagiarism(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 cursor-pointer"
-                  />
-                  <span className="text-gray-700 dark:text-gray-300">
-                    Include plagiarism flags
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            {/* Date Range */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Date Range (Optional)
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    From
-                  </label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    To
-                  </label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+            {/* Options */}
+            <div className="glass-card" style={{ padding: 24 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0', marginBottom: 18 }}>Include in Export</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <ToggleSwitch
+                  checked={includeJustification}
+                  onChange={setIncludeJustification}
+                  label="AI Grade Justifications"
+                />
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.05)' }} />
+                <ToggleSwitch
+                  checked={includePlagiarism}
+                  onChange={setIncludePlagiarism}
+                  label="Plagiarism Scores"
+                />
               </div>
             </div>
           </div>
 
-          {/* Export Preview */}
-          <div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 sticky top-24">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Export Summary
-              </h3>
+          {/* ── Right: summary + export button (sticky) ── */}
+          <div style={{ position: 'sticky', top: 24 }}>
+            <div className="glass-card" style={{ padding: 24 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0', marginBottom: 20 }}>Export Summary</h3>
 
-              <div className="space-y-4 mb-6">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Selected Exam</p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {exams.find((e) => e.id === selectedExamId)?.title ||
-                      'No exam selected'}
+                  <p style={{ fontSize: 11, color: '#475569', marginBottom: 4, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Exam</p>
+                  <p style={{ fontSize: 14, color: '#e2e8f0', fontWeight: 500 }}>
+                    {selectedExam?.title || 'None selected'}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Format</p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  <p style={{ fontSize: 11, color: '#475569', marginBottom: 4, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Format</p>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '3px 10px', borderRadius: 6,
+                    background: `${FORMAT_OPTIONS.find(f => f.id === format)?.color}15`,
+                    border: `1px solid ${FORMAT_OPTIONS.find(f => f.id === format)?.color}25`,
+                    color: FORMAT_OPTIONS.find(f => f.id === format)?.color,
+                    fontSize: 13, fontWeight: 700,
+                  }}>
                     {format.toUpperCase()}
-                  </p>
+                  </span>
                 </div>
 
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Columns</p>
-                  <ul className="text-sm font-medium text-gray-900 dark:text-white space-y-1 mt-2">
-                    <li>✓ Student ID</li>
-                    <li>✓ Total Marks</li>
-                    {includeJustification && <li>✓ Justifications</li>}
-                    {includePlagiarism && <li>✓ Plagiarism Flags</li>}
-                  </ul>
+                  <p style={{ fontSize: 11, color: '#475569', marginBottom: 8, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Columns</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {previewCols.map(col => (
+                      <div key={col} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <CheckCircle2 size={13} color="#10b981" />
+                        <span style={{ fontSize: 13, color: '#94a3b8' }}>{col}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
               <button
                 onClick={handleExport}
                 disabled={isExporting || !selectedExamId}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-3 rounded-lg transition flex items-center justify-center gap-2"
+                className="btn btn-primary btn-full btn-lg"
               >
-                <Download className="w-5 h-5" />
-                {isExporting ? 'Exporting...' : 'Export Now'}
+                {isExporting
+                  ? <><Loader2 size={17} style={{ animation: 'spinSlow 0.8s linear infinite' }} /> Exporting…</>
+                  : <><Download size={17} /> Export Now</>
+                }
               </button>
 
-              <p className="text-xs text-gray-500 dark:text-gray-500 text-center mt-4">
-                Downloads will start automatically
+              <p style={{ textAlign: 'center', color: '#334155', fontSize: 12, marginTop: 12 }}>
+                Download starts automatically
               </p>
             </div>
           </div>
+
         </div>
       </div>
     </Layout>

@@ -1,79 +1,70 @@
 import React from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, ShieldAlert } from 'lucide-react'
 
-/**
- * PlagiarismFlag - Displays plagiarism detection results
- * Memoized for performance
- */
 function PlagiarismFlag({ grade }) {
-  if (!grade?.plagiarism_score) {
-    return null
-  }
+  if (!grade?.plagiarism_score) return null
 
   const score = grade.plagiarism_score
-  const isFlagged = score > 0.7
-  const isProbable = score > 0.5
+  const pct = Math.round(score * 100)
 
-  const getRiskLevel = () => {
-    if (score > 0.8) return 'critical'
-    if (score > 0.7) return 'high'
-    if (score > 0.5) return 'medium'
-    return 'low'
-  }
-
-  const getRiskColor = () => {
-    const level = getRiskLevel()
-    switch (level) {
-      case 'critical':
-        return 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700'
-      case 'high':
-        return 'bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-700'
-      case 'medium':
-        return 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700'
-      default:
-        return 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700'
-    }
-  }
-
-  const getRiskLabel = () => {
-    const level = getRiskLevel()
-    switch (level) {
-      case 'critical':
-        return 'Critical Risk'
-      case 'high':
-        return 'High Risk'
-      case 'medium':
-        return 'Medium Risk'
-      default:
-        return 'Low Risk'
-    }
-  }
+  const level = score > 0.8 ? 'critical' : score > 0.7 ? 'high' : score > 0.5 ? 'medium' : 'low'
+  const config = {
+    critical: { label: 'Critical Risk',  color: '#ef4444', bg: 'rgba(239,68,68,0.08)',  border: 'rgba(239,68,68,0.2)',  bar: '#ef4444' },
+    high:     { label: 'High Risk',      color: '#f97316', bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.2)', bar: '#f97316' },
+    medium:   { label: 'Medium Risk',    color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)', bar: '#f59e0b' },
+    low:      { label: 'Low Risk',       color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)', bar: '#10b981' },
+  }[level]
 
   return (
-    <div className={`rounded-lg border p-4 flex items-start gap-3 ${getRiskColor()}`}>
-      <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-      <div className="flex-1">
-        <p className="font-semibold text-sm">Plagiarism Detection</p>
-        <div className="mt-2">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium">Similarity: {(score * 100).toFixed(1)}%</span>
-            <span className="text-xs font-semibold">{getRiskLabel()}</span>
-          </div>
-          <div className="w-full bg-gray-300 dark:bg-gray-600 h-2 rounded-full overflow-hidden">
-            <div
-              className={`h-full transition-all ${
-                isFlagged ? 'bg-red-600' : isProbable ? 'bg-orange-500' : 'bg-green-500'
-              }`}
-              style={{ width: `${Math.min(score * 100, 100)}%` }}
-            />
-          </div>
+    <div style={{
+      padding: '14px 16px',
+      borderRadius: 12,
+      background: config.bg,
+      border: `1px solid ${config.border}`,
+    }}>
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <ShieldAlert size={16} color={config.color} />
+          <p style={{ fontSize: 13, fontWeight: 700, color: config.color }}>Plagiarism Detection</p>
         </div>
-        {isFlagged && (
-          <p className="text-xs mt-2 font-medium">
-            ⚠️ This submission may contain plagiarized content. Review carefully.
-          </p>
-        )}
+        <span style={{
+          padding: '2px 9px', borderRadius: 9999,
+          background: `${config.color}20`, border: `1px solid ${config.color}30`,
+          fontSize: 11, fontWeight: 700, color: config.color,
+          letterSpacing: '0.04em',
+        }}>
+          {config.label}
+        </span>
       </div>
+
+      {/* Progress bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{
+          flex: 1, height: 6, borderRadius: 3,
+          background: 'rgba(255,255,255,0.08)', overflow: 'hidden',
+        }}>
+          <div style={{
+            width: `${Math.min(pct, 100)}%`, height: '100%',
+            background: config.bar, borderRadius: 3,
+            transition: 'width 0.5s ease',
+          }} />
+        </div>
+        <p style={{ fontSize: 13, fontWeight: 800, color: config.color, flexShrink: 0 }}>{pct}%</p>
+      </div>
+
+      {/* Warning text */}
+      {score > 0.7 && (
+        <p style={{ fontSize: 12, color: config.color, marginTop: 8, opacity: 0.8, lineHeight: 1.5 }}>
+          ⚠️ This submission shows high similarity to other answers. Review carefully before approving.
+        </p>
+      )}
+
+      {grade.similar_to && (
+        <p style={{ fontSize: 11, color: '#64748b', marginTop: 6 }}>
+          Similar to: {grade.similar_to}
+        </p>
+      )}
     </div>
   )
 }

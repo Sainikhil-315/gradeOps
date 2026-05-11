@@ -1,7 +1,9 @@
 import React, { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../components/Layout'
-import { BookOpen, Plus, Trash2, Save, ArrowRight } from 'lucide-react'
+import {
+  BookOpen, Plus, Trash2, Save, Loader2, Info, AlertCircle,
+} from 'lucide-react'
 import { rubricsAPI } from '../api'
 import { useToast } from '../hooks'
 
@@ -11,245 +13,293 @@ export default function RubricSetup() {
   const toast = useToast()
 
   const [title, setTitle] = useState('')
-  const [totalMarks, setTotalMarks] = useState(100)
   const [criteria, setCriteria] = useState([
-    { id: 1, name: '', maxMarks: 0, description: '' },
+    { id: 1, name: '', maxMarks: '', description: '' },
   ])
   const [nextId, setNextId] = useState(2)
   const [isSaving, setIsSaving] = useState(false)
 
   const addCriterion = () => {
-    setCriteria([
-      ...criteria,
-      { id: nextId, name: '', maxMarks: 0, description: '' },
-    ])
-    setNextId(nextId + 1)
+    setCriteria(prev => [...prev, { id: nextId, name: '', maxMarks: '', description: '' }])
+    setNextId(n => n + 1)
   }
 
   const removeCriterion = (id) => {
-    if (criteria.length > 1) {
-      setCriteria(criteria.filter((c) => c.id !== id))
-    } else {
-      toast.error('At least one criterion is required')
-    }
+    if (criteria.length <= 1) { toast.error('At least one criterion is required'); return }
+    setCriteria(prev => prev.filter(c => c.id !== id))
   }
 
   const updateCriterion = (id, field, value) => {
-    setCriteria(
-      criteria.map((c) =>
-        c.id === id ? { ...c, [field]: value } : c
-      )
-    )
+    setCriteria(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c))
   }
 
-  const getTotalMarksFromCriteria = () => {
-    return criteria.reduce((sum, c) => sum + (parseInt(c.maxMarks) || 0), 0)
-  }
+  const getTotal = () => criteria.reduce((s, c) => s + (parseInt(c.maxMarks) || 0), 0)
+  const total = getTotal()
 
   const saveRubric = async () => {
-    // Validation
-    if (!title.trim()) {
-      toast.error('Please enter rubric title')
-      return
-    }
-
-    if (criteria.some((c) => !c.name.trim() || !c.maxMarks)) {
-      toast.error('All criteria must have a name and marks')
-      return
-    }
-
-    const criteriaTotal = getTotalMarksFromCriteria()
-    if (criteriaTotal === 0) {
-      toast.error('Total marks must be greater than 0')
-      return
-    }
+    if (!title.trim()) { toast.error('Please enter a rubric title'); return }
+    if (criteria.some(c => !c.name.trim())) { toast.error('All criteria must have names'); return }
+    if (criteria.some(c => !c.maxMarks || parseInt(c.maxMarks) <= 0)) { toast.error('All criteria must have marks > 0'); return }
+    if (total === 0) { toast.error('Total marks must be greater than 0'); return }
 
     setIsSaving(true)
     try {
-      const rubricData = {
-        criteria: criteria.map((c) => ({
-          id: c.name,  // Use name as the criterion ID
+      await rubricsAPI.createRubric(examId, {
+        criteria: criteria.map(c => ({
+          id: c.name,
           marks: parseInt(c.maxMarks),
           description: c.description,
         })),
-        max_marks: criteriaTotal,
-      }
-
-      await rubricsAPI.createRubric(examId, rubricData)
-      toast.success('Rubric saved successfully!')
-
-      // Redirect to dashboard after 1 second
-      setTimeout(() => {
-        navigate('/dashboard')
-      }, 1000)
+        max_marks: total,
+      })
+      toast.success('Rubric saved! The system will now begin AI grading.')
+      setTimeout(() => navigate('/dashboard'), 1200)
     } catch (error) {
-      // Handle both validation errors and detail errors
-      const errorMessage = error.response?.data?.detail || 
-                          (Array.isArray(error.response?.data) ? 
-                            error.response.data.map(e => e.msg).join(', ') :
-                            'Failed to save rubric')
-      toast.error(errorMessage)
-    } finally {
-      setIsSaving(false)
-    }
+      const msg = error.response?.data?.detail ||
+        (Array.isArray(error.response?.data)
+          ? error.response.data.map(e => e.msg).join(', ')
+          : 'Failed to save rubric')
+      toast.error(msg)
+    } finally { setIsSaving(false) }
   }
 
-  const criteriaTotal = getTotalMarksFromCriteria()
+  /* marks distribution bar widths */
+  const marksBarItems = criteria.map(c => ({
+    name: c.name || 'Unnamed',
+    marks: parseInt(c.maxMarks) || 0,
+  })).filter(c => c.marks > 0)
+
+  const COLORS = ['#6366f1', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899']
 
   return (
     <Layout>
-      <div className="space-y-8">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+      <div style={{ maxWidth: 760, margin: '0 auto', animation: 'slideUp 0.4s ease forwards' }}>
+
+        {/* ── Header ── */}
+        <div style={{ marginBottom: 32 }}>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em' }}>
             Setup Rubric
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Define grading criteria and marking scheme for your exam.
+          <p style={{ color: '#64748b', marginTop: 4, fontSize: 14 }}>
+            Define grading criteria and point breakdowns. The AI will use this rubric to grade each answer.
           </p>
         </div>
 
-        {/* Rubric Builder */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        {/* ── AI Info Banner ── */}
+        <div style={{
+          padding: '14px 18px',
+          borderRadius: 12,
+          background: 'rgba(59,130,246,0.07)',
+          border: '1px solid rgba(59,130,246,0.18)',
+          display: 'flex', alignItems: 'flex-start', gap: 12,
+          marginBottom: 24,
+        }}>
+          <Info size={18} color="#60a5fa" style={{ flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#93c5fd', marginBottom: 3 }}>How AI Uses This Rubric</p>
+            <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
+              Each criterion becomes a grading dimension. The LangGraph pipeline evaluates the OCR-extracted answer text against each criterion, assigns marks (0–max), provides a justification, and a confidence score (0–1).
+            </p>
+          </div>
+        </div>
+
+        {/* ── Rubric Builder ── */}
+        <div className="glass-card" style={{ overflow: 'hidden', marginBottom: 24 }}>
           {/* Rubric Title */}
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Rubric Title
-            </label>
+          <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <label className="label">Rubric Title</label>
             <input
               type="text"
+              className="input"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., CS101 Midterm Rubric"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={e => setTitle(e.target.value)}
+              placeholder="e.g. CS101 Midterm Rubric"
             />
           </div>
 
-          {/* Criteria List */}
-          <div className="p-6 space-y-4">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Criteria ({criteria.length})
+          {/* Criteria */}
+          <div style={{ padding: '20px 24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0' }}>
+                Criteria <span style={{ color: '#475569', fontWeight: 400 }}>({criteria.length})</span>
               </h3>
-              <div className="text-right">
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Marks</p>
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  {criteriaTotal}
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: 11, color: '#475569', marginBottom: 2 }}>Total Marks</p>
+                <p style={{
+                  fontSize: 24, fontWeight: 800,
+                  background: total > 0 ? 'linear-gradient(135deg,#818cf8,#6366f1)' : 'none',
+                  WebkitBackgroundClip: total > 0 ? 'text' : 'unset',
+                  WebkitTextFillColor: total > 0 ? 'transparent' : '#475569',
+                  backgroundClip: total > 0 ? 'text' : 'unset',
+                  color: total > 0 ? 'unset' : '#475569',
+                }}>
+                  {total}
                 </p>
               </div>
             </div>
 
-            {criteria.map((criterion, index) => (
-              <div
-                key={criterion.id}
-                className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Criterion {index + 1}
-                  </h4>
-                  <button
-                    onClick={() => removeCriterion(criterion.id)}
-                    className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {criteria.map((criterion, index) => (
+                <div key={criterion.id} style={{
+                  padding: '16px 18px',
+                  borderRadius: 12,
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                  animation: 'slideUp 0.25s ease forwards',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{
+                        width: 22, height: 22, borderRadius: 6,
+                        background: `${COLORS[index % COLORS.length]}20`,
+                        border: `1px solid ${COLORS[index % COLORS.length]}30`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 11, fontWeight: 700, color: COLORS[index % COLORS.length],
+                      }}>
+                        {index + 1}
+                      </div>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>Criterion {index + 1}</p>
+                    </div>
+                    <button
+                      onClick={() => removeCriterion(criterion.id)}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: '#475569', padding: 4, display: 'flex',
+                        transition: 'color 150ms ease',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
+                      onMouseLeave={e => e.currentTarget.style.color = '#475569'}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                      Criterion Name
-                    </label>
-                    <input
-                      type="text"
-                      value={criterion.name}
-                      onChange={(e) =>
-                        updateCriterion(criterion.id, 'name', e.target.value)
-                      }
-                      placeholder="e.g., Problem Solving"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 12, marginBottom: 10 }}>
+                    <div>
+                      <label className="label">Criterion Name</label>
+                      <input
+                        type="text"
+                        className="input"
+                        value={criterion.name}
+                        onChange={e => updateCriterion(criterion.id, 'name', e.target.value)}
+                        placeholder="e.g. Problem Solving Approach"
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Max Marks</label>
+                      <input
+                        type="number"
+                        className="input"
+                        value={criterion.maxMarks}
+                        onChange={e => updateCriterion(criterion.id, 'maxMarks', e.target.value)}
+                        placeholder="25"
+                        min="1"
+                        style={{ textAlign: 'center' }}
+                      />
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                      Max Marks
-                    </label>
-                    <input
-                      type="number"
-                      value={criterion.maxMarks}
-                      onChange={(e) =>
-                        updateCriterion(criterion.id, 'maxMarks', e.target.value)
-                      }
-                      placeholder="e.g., 25"
-                      min="0"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    <label className="label">Grading Description <span style={{ color: '#334155', fontWeight: 400 }}>(optional – helps AI)</span></label>
+                    <textarea
+                      className="input textarea"
+                      value={criterion.description}
+                      onChange={e => updateCriterion(criterion.id, 'description', e.target.value)}
+                      placeholder="Describe what constitutes full marks, partial marks, and zero marks for this criterion..."
+                      rows={2}
                     />
                   </div>
                 </div>
+              ))}
+            </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                    Description (Optional)
-                  </label>
-                  <textarea
-                    value={criterion.description}
-                    onChange={(e) =>
-                      updateCriterion(criterion.id, 'description', e.target.value)
-                    }
-                    placeholder="Add detailed guidelines for grading this criterion..."
-                    rows="2"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-              </div>
-            ))}
-
-            {/* Add Criterion Button */}
+            {/* Add criterion */}
             <button
               onClick={addCriterion}
-              className="w-full py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:border-blue-500 dark:hover:border-blue-500 transition flex items-center justify-center gap-2 mt-4"
+              style={{
+                width: '100%', marginTop: 12,
+                padding: '12px', borderRadius: 10,
+                border: '1px dashed rgba(99,102,241,0.3)',
+                background: 'transparent', color: '#818cf8',
+                cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                fontSize: 13, fontWeight: 600,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                transition: 'all 150ms ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.06)'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.5)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.3)' }}
             >
-              <Plus className="w-5 h-5" />
+              <Plus size={16} />
               Add Criterion
             </button>
           </div>
 
-          {/* Summary */}
-          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
-            <div className="grid grid-cols-2 gap-4 text-center">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Criteria Count</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {criteria.length}
-                </p>
+          {/* Marks Distribution Bar */}
+          {total > 0 && marksBarItems.length > 0 && (
+            <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 10, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Marks Distribution</p>
+              <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', gap: 2 }}>
+                {marksBarItems.map((item, i) => (
+                  <div
+                    key={item.name}
+                    style={{
+                      flex: item.marks,
+                      background: COLORS[i % COLORS.length],
+                      borderRadius: 4,
+                      transition: 'flex 0.4s ease',
+                    }}
+                    title={`${item.name}: ${item.marks} marks`}
+                  />
+                ))}
               </div>
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Marks</p>
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  {criteriaTotal}
-                </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 10 }}>
+                {marksBarItems.map((item, i) => (
+                  <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: 2, background: COLORS[i % COLORS.length] }} />
+                    <span style={{ fontSize: 12, color: '#64748b' }}>{item.name} ({item.marks})</span>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Action Buttons */}
-          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex gap-4">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={saveRubric}
-              disabled={isSaving}
-              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition flex items-center justify-center gap-2"
-            >
-              <Save className="w-5 h-5" />
-              {isSaving ? 'Saving...' : 'Save Rubric'}
-            </button>
+          {/* Summary + Actions */}
+          <div style={{
+            padding: '16px 24px',
+            borderTop: '1px solid rgba(255,255,255,0.06)',
+            background: 'rgba(255,255,255,0.02)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            flexWrap: 'wrap',
+          }}>
+            <div style={{ display: 'flex', gap: 24 }}>
+              <div>
+                <p style={{ fontSize: 11, color: '#475569' }}>Criteria</p>
+                <p style={{ fontSize: 20, fontWeight: 800, color: '#e2e8f0' }}>{criteria.length}</p>
+              </div>
+              <div>
+                <p style={{ fontSize: 11, color: '#475569' }}>Total Marks</p>
+                <p style={{ fontSize: 20, fontWeight: 800, color: '#818cf8' }}>{total}</p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="btn btn-ghost"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveRubric}
+                disabled={isSaving}
+                className="btn btn-primary"
+              >
+                {isSaving
+                  ? <><Loader2 size={16} style={{ animation: 'spinSlow 0.8s linear infinite' }} /> Saving…</>
+                  : <><Save size={16} /> Save Rubric</>
+                }
+              </button>
+            </div>
           </div>
         </div>
       </div>
