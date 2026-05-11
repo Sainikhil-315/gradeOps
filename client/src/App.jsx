@@ -28,7 +28,7 @@ function AppContent() {
   const role = useAuthStore((state) => state.role)
 
   return (
-    <div className={isDark ? 'dark' : ''}>
+    <>
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
@@ -67,6 +67,15 @@ function AppContent() {
             </InstructorRoute>
           }
         />
+        {/* Also allow /export without examId param */}
+        <Route
+          path="/export"
+          element={
+            <InstructorRoute>
+              <GradeExport />
+            </InstructorRoute>
+          }
+        />
 
         {/* TA Routes */}
         <Route
@@ -97,10 +106,10 @@ function AppContent() {
       {/* Toast notifications */}
       <Toaster
         position="top-right"
-        theme={isDark ? 'dark' : 'light'}
+        theme="dark"
         richColors
       />
-    </div>
+    </>
   )
 }
 

@@ -3,17 +3,16 @@ import Sidebar from './ui/Sidebar'
 
 /**
  * Layout wrapper for authenticated pages
- * Includes sidebar navigation and content area
  */
 export default function Layout({ children, className = '' }) {
   return (
-    <div className="flex h-screen bg-white dark:bg-gray-900">
-      {/* Sidebar */}
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--color-bg)' }}>
       <Sidebar />
-
-      {/* Main Content */}
-      <main className={`flex-1 overflow-auto ${className}`}>
-        <div className="p-6 lg:p-8">
+      <main
+        style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}
+        className={className}
+      >
+        <div style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto' }}>
           {children}
         </div>
       </main>

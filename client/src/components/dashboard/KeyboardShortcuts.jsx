@@ -1,71 +1,115 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { Keyboard, X } from 'lucide-react'
 
+const SHORTCUTS = [
+  { key: '?',     action: 'Show this help'    },
+  { key: 'j',     action: 'Next submission'   },
+  { key: 'k',     action: 'Previous submission'},
+  { key: 'Enter', action: 'Approve grade'     },
+  { key: 'o',     action: 'Override grade'    },
+  { key: 'Esc',   action: 'Close modal'       },
+]
+
 /**
- * KeyboardShortcuts - Shows available keyboard shortcuts for grading
- * Memoized for performance
+ * KeyboardShortcuts — controlled modal (accepts isOpen/onClose props)
+ * Also listens to '?' key to toggle, and Escape to close
  */
-function KeyboardShortcuts() {
-  const [isOpen, setIsOpen] = useState(false)
-
-  const shortcuts = [
-    { key: '?', action: 'Show this help' },
-    { key: 'j', action: 'Next submission' },
-    { key: 'k', action: 'Previous submission' },
-    { key: 'Enter', action: 'Approve grade' },
-    { key: 'o', action: 'Override grade' },
-    { key: 'Esc', action: 'Close modal' },
-  ]
-
+function KeyboardShortcuts({ isOpen, onClose }) {
   useEffect(() => {
-    const handleKeyPress = (e) => {
-      if (e.key === '?') {
-        setIsOpen(!isOpen)
-      }
+    const handler = (e) => {
+      if (e.key === 'Escape' && isOpen) onClose()
     }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isOpen, onClose])
 
-    window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [isOpen])
-
-  if (!isOpen) {
-    return null
-  }
+  if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2">
-            <Keyboard className="w-5 h-5" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Keyboard Shortcuts
-            </h3>
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 100,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        animation: 'fadeIn 200ms ease',
+      }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div style={{
+        width: '100%', maxWidth: 420,
+        margin: 16,
+        background: 'rgba(13,19,34,0.96)',
+        backdropFilter: 'blur(32px)',
+        WebkitBackdropFilter: 'blur(32px)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: 20,
+        boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+        animation: 'slideUp 0.25s ease',
+        overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '18px 20px',
+          borderBottom: '1px solid rgba(255,255,255,0.07)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 8,
+              background: 'rgba(99,102,241,0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Keyboard size={16} color="#818cf8" />
+            </div>
+            <p style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>Keyboard Shortcuts</p>
           </div>
           <button
-            onClick={() => setIsOpen(false)}
-            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+            onClick={onClose}
+            style={{
+              background: 'rgba(255,255,255,0.06)', border: 'none',
+              borderRadius: 7, cursor: 'pointer', color: '#64748b',
+              width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all 150ms ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = '#f1f5f9' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#64748b' }}
           >
-            <X className="w-5 h-5" />
+            <X size={15} />
           </button>
         </div>
 
-        <div className="p-6 space-y-3">
-          {shortcuts.map((shortcut, index) => (
-            <div key={index} className="flex items-center justify-between">
-              <p className="text-gray-700 dark:text-gray-300 text-sm">{shortcut.action}</p>
-              <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono text-gray-900 dark:text-white">
-                {shortcut.key}
+        {/* Shortcuts list */}
+        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {SHORTCUTS.map((s, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 12px', borderRadius: 8,
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.05)',
+            }}>
+              <p style={{ fontSize: 13, color: '#94a3b8' }}>{s.action}</p>
+              <kbd style={{
+                padding: '3px 10px', borderRadius: 6,
+                background: 'rgba(99,102,241,0.1)',
+                border: '1px solid rgba(99,102,241,0.25)',
+                color: '#a5b4fc', fontSize: 12, fontFamily: 'Inter, monospace',
+                fontWeight: 600, letterSpacing: '0.03em',
+              }}>
+                {s.key}
               </kbd>
             </div>
           ))}
         </div>
 
-        <div className="p-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 text-center">
-          <button
-            onClick={() => setIsOpen(false)}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-sm"
-          >
+        {/* Footer */}
+        <div style={{
+          padding: '12px 20px',
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex', justifyContent: 'flex-end',
+        }}>
+          <button onClick={onClose} className="btn btn-ghost btn-sm">
             Close (Esc)
           </button>
         </div>
