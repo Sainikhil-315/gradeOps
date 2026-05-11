@@ -18,7 +18,15 @@ export const rubricsAPI = {
    * Get rubric by ID
    */
   getRubric: async (rubricId) => {
-    const response = await apiClient.get(`/api/rubrics/${rubricId}`);
+    const response = await apiClient.get(`/api/rubrics/id/${rubricId}`);
+    return response.data;
+  },
+
+  /**
+   * Get rubric by exam ID
+   */
+  getRubricByExam: async (examId) => {
+    const response = await apiClient.get(`/api/rubrics/${examId}`);
     return response.data;
   },
 
@@ -36,7 +44,7 @@ export const rubricsAPI = {
    * Update rubric
    */
   updateRubric: async (rubricId, rubricData) => {
-    const response = await apiClient.patch(`/api/rubrics/${rubricId}`, rubricData);
+    const response = await apiClient.put(`/api/rubrics/${rubricId}`, rubricData);
     return response.data;
   },
 

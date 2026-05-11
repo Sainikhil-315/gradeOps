@@ -16,6 +16,7 @@ class ExamStatusEnum(str, Enum):
     PROCESSING = "processing"
     READY = "ready"
     EXPORTED = "exported"
+    FAILED = "failed"
 
 
 class ExamBase(BaseModel):
@@ -41,6 +42,8 @@ class ExamResponse(ExamBase):
     instructor_id: UUID = Field(..., description="Instructor UUID")
     created_at: datetime = Field(..., description="When exam was created")
     updated_at: datetime = Field(..., description="When exam was last updated")
+    submissions: int = Field(default=0, description="Total submissions")
+    graded: int = Field(default=0, description="Graded submissions")
     
     class Config:
         from_attributes = True

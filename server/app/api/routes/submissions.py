@@ -77,7 +77,10 @@ async def upload_submission(
         # Read file content
         content = await file.read()
         
-        object_path = f"{exam_id}/{uuid.uuid4()}_{file.filename}"
+        # Sanitize filename
+        safe_filename = file.filename.replace(" ", "_")
+        object_path = f"{exam_id}/{uuid.uuid4()}_{safe_filename}"
+        
         supabase.storage.from_(SupabaseConfig.EXAM_PDFS_BUCKET).upload(
             path=object_path,
             file=content,
@@ -88,6 +91,19 @@ async def upload_submission(
 
         db_submission = SubmissionService.create_submission(db, exam_uuid, submission_create)
         
+        # Check if rubric exists to trigger pipeline immediately
+        from app.models import Rubric, Exam, ExamStatus
+        from app.services import PipelineService, ExamService
+        
+        rubric = db.query(Rubric).filter(Rubric.exam_id == exam_uuid).first()
+        if rubric:
+            logger.info(f"Rubric found for exam {exam_id}. Enqueuing grading job for submission {db_submission.id}...")
+            PipelineService.enqueue_job(db, db_submission.id)
+            # Ensure exam is in processing status
+            ExamService.update_exam_status(db, exam_uuid, ExamStatus.PROCESSING)
+        else:
+            logger.info(f"No rubric found for exam {exam_id} yet. Submission {db_submission.id} will be enqueued later when rubric is set.")
+
         logger.info(f"Submission uploaded for exam {exam_id}: {db_submission.id}")
         return SubmissionResponse.model_validate(db_submission)
         

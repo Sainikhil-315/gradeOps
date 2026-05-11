@@ -15,6 +15,7 @@ from .answer_region_service import AnswerRegionService
 from .grade_service import GradeService
 from .export_service import ExportService
 from .pipeline_service import PipelineService
+from .pdf_processor import PDFProcessorService
 
 __all__ = [
     "UserService",
@@ -25,4 +26,5 @@ __all__ = [
     "GradeService",
     "ExportService",
     "PipelineService",
+    "PDFProcessorService",
 ]

@@ -22,6 +22,7 @@ class ExamStatus(str, Enum):
     PROCESSING = "processing"    # Submissions are being graded
     READY = "ready"              # All grades complete, ready for review
     EXPORTED = "exported"        # Grades have been exported
+    FAILED = "failed"            # Processing failed or stopped with errors
 
 
 class Exam(Base):

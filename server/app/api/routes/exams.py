@@ -131,9 +131,26 @@ def list_exams(
         exams = ExamService.get_exams(
             db, instructor_uuid, status_filter, limit, offset
         )
+        
+        from app.models import Submission, SubmissionStatus
+        from sqlalchemy import func
+        
+        response_exams = []
+        for exam in exams:
+            sub_count = db.query(func.count(Submission.id)).filter(Submission.exam_id == exam.id).scalar() or 0
+            grad_count = db.query(func.count(Submission.id)).filter(
+                Submission.exam_id == exam.id, 
+                Submission.status == SubmissionStatus.GRADED.value
+            ).scalar() or 0
+            
+            exam_resp = ExamResponse.model_validate(exam)
+            exam_resp.submissions = sub_count
+            exam_resp.graded = grad_count
+            response_exams.append(exam_resp)
+
         return ExamListResponse(
-            exams=[ExamResponse.model_validate(exam) for exam in exams],
-            total=len(exams),
+            exams=response_exams,
+            total=len(response_exams),
         )
 
     except HTTPException:

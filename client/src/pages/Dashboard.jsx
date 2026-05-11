@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
-import { Plus, BarChart3, FileText, Clock, ChevronRight, Upload, BookOpen, Cpu, ClipboardCheck, Download, Zap, TrendingUp } from 'lucide-react'
+import { Plus, BarChart3, FileText, Clock, ChevronRight, Upload, BookOpen, Cpu, ClipboardCheck, Download, Zap, TrendingUp, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { examsAPI } from '../api'
 import { useToast } from '../hooks'
@@ -11,6 +11,8 @@ const STATUS_CONFIG = {
   processing: { label: 'Processing',  color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',  border: 'rgba(59,130,246,0.3)'  },
   ready:      { label: 'In Review',   color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.3)'  },
   complete:   { label: 'Complete',    color: '#10b981', bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.3)'  },
+  exported:   { label: 'Exported',    color: '#10b981', bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.3)'  },
+  failed:     { label: 'Failed',      color: '#ef4444', bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.3)'   },
 }
 
 const PIPELINE_STEPS = [
@@ -43,11 +45,26 @@ export default function InstructorDashboard() {
     setIsLoading(true)
     try {
       const data = await examsAPI.listExams()
-      if (data?.exams?.length > 0) setExams(data.exams)
+      if (data?.exams) setExams(data.exams)
     } catch {
       // use mock data on error
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleDeleteExam = async (e, examId, title) => {
+    e.stopPropagation()
+    if (!window.confirm(`Are you sure you want to delete "${title}"? This will permanently remove all submissions and grades.`)) {
+      return
+    }
+
+    try {
+      await examsAPI.deleteExam(examId)
+      toast.success(`Exam "${title}" deleted.`)
+      setExams(prev => prev.filter(ex => ex.id !== examId))
+    } catch (error) {
+      toast.error('Failed to delete exam.')
     }
   }
 
@@ -306,6 +323,20 @@ export default function InstructorDashboard() {
                         title="Export Grades"
                       >
                         Export
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteExam(e, exam.id, exam.title)}
+                        style={{
+                          width: 32, height: 32, borderRadius: 7,
+                          background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+                          color: '#f87171', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: 'pointer', transition: 'all 150ms ease',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.2)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
+                        title="Delete Exam"
+                      >
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   </div>

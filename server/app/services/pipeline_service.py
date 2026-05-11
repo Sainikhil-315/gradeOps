@@ -51,14 +51,22 @@ class PipelineService:
 
     @staticmethod
     async def process_next_job(db: Session) -> bool:
+        # Polling log
+        # logger.debug("Polling for next pipeline job...")
+        
         job = (
             db.query(PipelineJob)
-            .filter(PipelineJob.status == PipelineJobStatus.QUEUED.value)
+            .filter(
+                (PipelineJob.status == PipelineJobStatus.QUEUED.value) |
+                ((PipelineJob.status == PipelineJobStatus.FAILED.value) & (PipelineJob.attempts < 3))
+            )
             .order_by(PipelineJob.created_at.asc())
             .first()
         )
         if not job:
             return False
+
+        logger.info(f"Found job {job.id} (status: {job.status}, attempts: {job.attempts}). Starting processing...")
 
         job.status = PipelineJobStatus.RUNNING.value
         job.started_at = datetime.now(timezone.utc)
@@ -88,9 +96,37 @@ class PipelineService:
             logger.exception("pipeline.failed submission_id=%s", submission.id)
             job.status = PipelineJobStatus.FAILED.value
             job.error = str(exc)
+            submission.status = SubmissionStatus.FAILED.value
         finally:
             job.completed_at = datetime.now(timezone.utc)
             db.commit()
+            
+            # Check if all submissions for this exam are finished
+            try:
+                from app.models import ExamStatus, SubmissionStatus
+                from app.services import ExamService
+                
+                total_submissions = db.query(Submission).filter(Submission.exam_id == submission.exam_id).count()
+                finished_submissions = db.query(Submission).filter(
+                    Submission.exam_id == submission.exam_id,
+                    Submission.status.in_([SubmissionStatus.GRADED.value, SubmissionStatus.FAILED.value])
+                ).count()
+                
+                if total_submissions > 0 and finished_submissions == total_submissions:
+                    has_failures = db.query(Submission).filter(
+                        Submission.exam_id == submission.exam_id,
+                        Submission.status == SubmissionStatus.FAILED.value
+                    ).count() > 0
+                    
+                    if has_failures:
+                        ExamService.update_exam_status(db, submission.exam_id, ExamStatus.FAILED)
+                        logger.warning(f"Exam {submission.exam_id} marked as FAILED due to processing errors")
+                    else:
+                        ExamService.update_exam_status(db, submission.exam_id, ExamStatus.READY)
+                        logger.info(f"Exam {submission.exam_id} marked as READY (all {total_submissions} submissions processed)")
+            except Exception as e:
+                logger.error(f"Error checking exam completion: {e}")
+                
         return True
 
     @staticmethod
@@ -105,8 +141,15 @@ class PipelineService:
             .order_by(AnswerRegion.question_id.asc())
             .all()
         )
+        
+        # If no regions exist, split the PDF first
         if not regions:
-            raise RuntimeError(f"No answer regions found for submission {submission.id}")
+            from app.services import PDFProcessorService
+            logger.info(f"Splitting PDF for submission {submission.id}")
+            regions = await PDFProcessorService.split_submission_into_regions(db, submission.id)
+
+        if not regions:
+            raise RuntimeError(f"No answer regions found for submission {submission.id} after splitting")
 
         graph = build_graph()
         for region in regions:

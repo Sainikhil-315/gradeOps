@@ -20,6 +20,7 @@ class SubmissionStatus(str, Enum):
     UPLOADED = "uploaded"        # PDF received, not yet processed
     PROCESSING = "processing"    # Pages being split and cropped
     GRADED = "graded"           # All answer regions graded by LangGraph
+    FAILED = "failed"           # Processing failed
 
 
 class Submission(Base):

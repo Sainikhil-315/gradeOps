@@ -49,7 +49,21 @@ def create_rubric(
     try:
         exam_uuid = UUID(exam_id)
         db_rubric = RubricService.create_rubric(db, exam_uuid, rubric)
-        logger.info(f"Rubric created for exam: {exam_id}")
+        
+        # Trigger pipeline for all submissions of this exam
+        from app.models import Submission, Exam, ExamStatus
+        from app.services import PipelineService, ExamService
+        
+        # Update exam status to processing
+        ExamService.update_exam_status(db, exam_uuid, ExamStatus.PROCESSING)
+        
+        # Enqueue all submissions
+        submissions = db.query(Submission).filter(Submission.exam_id == exam_uuid).all()
+        logger.info(f"Rubric created. Enqueuing {len(submissions)} existing submissions for exam {exam_id}...")
+        for sub in submissions:
+            PipelineService.enqueue_job(db, sub.id)
+            
+        logger.info(f"Rubric created and {len(submissions)} jobs enqueued for exam: {exam_id}")
         return RubricResponse.model_validate(db_rubric)
         
     except ValueError as e:

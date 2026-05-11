@@ -18,6 +18,38 @@ export default function RubricSetup() {
   ])
   const [nextId, setNextId] = useState(2)
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [rubricId, setRubricId] = useState(null)
+
+  React.useEffect(() => {
+    loadExistingRubric()
+  }, [examId])
+
+  const loadExistingRubric = async () => {
+    setIsLoading(true)
+    try {
+      const rubric = await rubricsAPI.getRubricByExam(examId)
+      if (rubric) {
+        setRubricId(rubric.id)
+        // Map backend criteria to frontend format
+        const mapped = rubric.criteria.map((c, idx) => ({
+          id: idx + 1,
+          name: c.id, // We used name as ID in save logic
+          maxMarks: c.marks.toString(),
+          description: c.description,
+        }))
+        setCriteria(mapped)
+        setNextId(mapped.length + 1)
+        setTitle(`Rubric for Exam ${examId.slice(0, 8)}`)
+      }
+    } catch (err) {
+      if (err.response?.status !== 404) {
+        console.error('Error loading rubric:', err)
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const addCriterion = () => {
     setCriteria(prev => [...prev, { id: nextId, name: '', maxMarks: '', description: '' }])
@@ -44,15 +76,23 @@ export default function RubricSetup() {
 
     setIsSaving(true)
     try {
-      await rubricsAPI.createRubric(examId, {
+      const payload = {
         criteria: criteria.map(c => ({
           id: c.name,
           marks: parseInt(c.maxMarks),
           description: c.description,
         })),
         max_marks: total,
-      })
-      toast.success('Rubric saved! The system will now begin AI grading.')
+      }
+
+      if (rubricId) {
+        await rubricsAPI.updateRubric(rubricId, payload)
+        toast.success('Rubric updated successfully!')
+      } else {
+        await rubricsAPI.createRubric(examId, payload)
+        toast.success('Rubric saved! The system will now begin AI grading.')
+      }
+      
       setTimeout(() => navigate('/dashboard'), 1200)
     } catch (error) {
       const msg = error.response?.data?.detail ||
@@ -105,48 +145,55 @@ export default function RubricSetup() {
 
         {/* ── Rubric Builder ── */}
         <div className="glass-card" style={{ overflow: 'hidden', marginBottom: 24 }}>
-          {/* Rubric Title */}
-          <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-            <label className="label">Rubric Title</label>
-            <input
-              type="text"
-              className="input"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="e.g. CS101 Midterm Rubric"
-            />
-          </div>
-
-          {/* Criteria */}
-          <div style={{ padding: '20px 24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0' }}>
-                Criteria <span style={{ color: '#475569', fontWeight: 400 }}>({criteria.length})</span>
-              </h3>
-              <div style={{ textAlign: 'right' }}>
-                <p style={{ fontSize: 11, color: '#475569', marginBottom: 2 }}>Total Marks</p>
-                <p style={{
-                  fontSize: 24, fontWeight: 800,
-                  background: total > 0 ? 'linear-gradient(135deg,#818cf8,#6366f1)' : 'none',
-                  WebkitBackgroundClip: total > 0 ? 'text' : 'unset',
-                  WebkitTextFillColor: total > 0 ? 'transparent' : '#475569',
-                  backgroundClip: total > 0 ? 'text' : 'unset',
-                  color: total > 0 ? 'unset' : '#475569',
-                }}>
-                  {total}
-                </p>
-              </div>
+          {isLoading ? (
+            <div style={{ padding: '80px 24px', textAlign: 'center' }}>
+              <Loader2 size={40} style={{ animation: 'spinSlow 0.8s linear infinite', margin: '0 auto 16px', color: '#6366f1' }} />
+              <p style={{ color: '#64748b', fontSize: 14 }}>Fetching rubric data...</p>
             </div>
+          ) : (
+            <>
+              {/* Rubric Title */}
+              <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <label className="label">Rubric Title</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  placeholder="e.g. CS101 Midterm Rubric"
+                />
+              </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {criteria.map((criterion, index) => (
-                <div key={criterion.id} style={{
-                  padding: '16px 18px',
-                  borderRadius: 12,
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.07)',
-                  animation: 'slideUp 0.25s ease forwards',
-                }}>
+              {/* Criteria */}
+              <div style={{ padding: '20px 24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0' }}>
+                    Criteria <span style={{ color: '#475569', fontWeight: 400 }}>({criteria.length})</span>
+                  </h3>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ fontSize: 11, color: '#475569', marginBottom: 2 }}>Total Marks</p>
+                    <p style={{
+                      fontSize: 24, fontWeight: 800,
+                      background: total > 0 ? 'linear-gradient(135deg,#818cf8,#6366f1)' : 'none',
+                      WebkitBackgroundClip: total > 0 ? 'text' : 'unset',
+                      WebkitTextFillColor: total > 0 ? 'transparent' : '#475569',
+                      backgroundClip: total > 0 ? 'text' : 'unset',
+                      color: total > 0 ? 'unset' : '#475569',
+                    }}>
+                      {total}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {criteria.map((criterion, index) => (
+                    <div key={criterion.id} style={{
+                      padding: '16px 18px',
+                      borderRadius: 12,
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.07)',
+                      animation: 'slideUp 0.25s ease forwards',
+                    }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div style={{
@@ -301,8 +348,10 @@ export default function RubricSetup() {
               </button>
             </div>
           </div>
-        </div>
+        </>
+      )}
       </div>
-    </Layout>
+    </div>
+  </Layout>
   )
 }
