@@ -94,29 +94,41 @@ def create_exam(
     response_model=ExamListResponse,
 )
 def list_exams(
-    instructor_id: str = Query(..., description="Instructor UUID"),
+    instructor_id: Optional[str] = Query(None, description="Optional Instructor UUID filter"),
     status_filter: Optional[str] = Query(None, description="Filter by status"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db_session),
-    _user=Depends(require_role("instructor")),
+    _user=Depends(require_role("instructor", "ta")),
 ):
     """
-    List exams for instructor.
+    List exams.
+    
+    If instructor_id is provided, filters by that instructor.
+    Instructors can see their own exams, TAs can see all exams (optionally filtered).
 
     Args:
-        instructor_id: UUID of the instructor
+        instructor_id: Optional UUID of the instructor
         status_filter: Optional status filter (draft, processing, ready, exported)
         limit: Number of exams to return
         offset: Pagination offset
         db: Database session
 
     Returns:
-        List of ExamListResponse
+        ExamListResponse
     """
     try:
-        instructor_uuid = UUID(instructor_id)
-        exams = ExamService.get_exams_by_instructor(
+        instructor_uuid = None
+        if instructor_id:
+            try:
+                instructor_uuid = UUID(instructor_id)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid instructor_id format",
+                )
+                
+        exams = ExamService.get_exams(
             db, instructor_uuid, status_filter, limit, offset
         )
         return ExamListResponse(
@@ -124,11 +136,8 @@ def list_exams(
             total=len(exams),
         )
 
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid instructor_id format",
-        )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error listing exams: {str(e)}")
         raise HTTPException(

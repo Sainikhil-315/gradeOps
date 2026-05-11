@@ -74,31 +74,35 @@ class ExamService:
             raise
     
     @staticmethod
-    def get_exams_by_instructor(
+    def get_exams(
         db: Session, 
-        instructor_id: UUID, 
+        instructor_id: Optional[UUID] = None, 
         status: Optional[str] = None,
         limit: int = 50,
         offset: int = 0,
     ) -> List[Exam]:
         """
-        Get all exams for an instructor, optionally filtered by status.
+        Get exams, optionally filtered by instructor and/or status.
         
         Args:
             db: Database session
-            instructor_id: Instructor UUID
+            instructor_id: Optional Instructor UUID filter
             status: Optional status filter
+            limit: Pagination limit
+            offset: Pagination offset
             
         Returns:
             List of Exam objects
         """
         try:
-            query = db.query(Exam).filter(Exam.instructor_id == instructor_id)
+            query = db.query(Exam)
+            if instructor_id:
+                query = query.filter(Exam.instructor_id == instructor_id)
             if status:
                 query = query.filter(Exam.status == status)
             return query.order_by(Exam.created_at.desc()).offset(offset).limit(limit).all()
         except Exception as e:
-            logger.error(f"Error retrieving instructor exams: {str(e)}")
+            logger.error(f"Error retrieving exams: {str(e)}")
             raise
     
     @staticmethod

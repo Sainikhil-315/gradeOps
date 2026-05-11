@@ -11,16 +11,14 @@ export const useGradeQueue = (examId) => {
   const toast = useToast()
   const [isLoading, setIsLoading] = useState(false)
 
-  const {
-    gradeQueue,
-    currentGrade,
-    currentIndex,
-    setGradeQueue,
-    nextGrade,
-    previousGrade,
-    updateGrade,
-    removeFromQueue,
-  } = useGradeStore()
+  const gradeQueue = useGradeStore(s => s.gradeQueue)
+  const currentGrade = useGradeStore(s => s.currentGrade)
+  const currentIndex = useGradeStore(s => s.currentIndex)
+  const setGradeQueue = useGradeStore(s => s.setGradeQueue)
+  const nextGradeStore = useGradeStore(s => s.nextGrade)
+  const previousGradeStore = useGradeStore(s => s.previousGrade)
+  const updateGrade = useGradeStore(s => s.updateGrade)
+  const removeFromQueue = useGradeStore(s => s.removeFromQueue)
 
   // Load initial queue
   useEffect(() => {
@@ -52,13 +50,13 @@ export const useGradeQueue = (examId) => {
         toast.success('Grade approved!')
         
         if (gradeQueue.length > currentIndex + 1) {
-          nextGrade()
+          nextGradeStore()
         }
       } catch (error) {
         toast.error('Failed to approve grade')
       }
     },
-    [currentGrade, currentIndex, gradeQueue, updateGrade, removeFromQueue, nextGrade, toast]
+    [currentGrade, currentIndex, gradeQueue, updateGrade, removeFromQueue, nextGradeStore, toast]
   )
 
   const override = useCallback(
@@ -79,13 +77,13 @@ export const useGradeQueue = (examId) => {
         toast.success('Grade overridden!')
         
         if (gradeQueue.length > currentIndex + 1) {
-          nextGrade()
+          nextGradeStore()
         }
       } catch (error) {
         toast.error('Failed to override grade')
       }
     },
-    [currentGrade, currentIndex, gradeQueue, updateGrade, removeFromQueue, nextGrade, toast]
+    [currentGrade, currentIndex, gradeQueue, updateGrade, removeFromQueue, nextGradeStore, toast]
   )
 
   return {
@@ -93,8 +91,8 @@ export const useGradeQueue = (examId) => {
     currentGrade,
     currentIndex,
     isLoading,
-    nextGrade,
-    previousGrade,
+    nextGrade: nextGradeStore,
+    previousGrade: previousGradeStore,
     approve,
     override,
     hasNext: currentIndex < gradeQueue.length - 1,

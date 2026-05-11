@@ -9,14 +9,15 @@ export const examsAPI = {
    * List all exams for current user
    */
   listExams: async (limit = 20, offset = 0) => {
-    const user = useAuthStore.getState().user;
-    const response = await apiClient.get('/api/exams', {
-      params: { 
-        instructor_id: user?.id,
-        limit, 
-        offset 
-      },
-    });
+    const { user, role } = useAuthStore.getState();
+    const params = { limit, offset };
+    
+    // Instructors only see their own exams, TAs can see everything
+    if (role === 'instructor' && user?.id) {
+      params.instructor_id = user.id;
+    }
+    
+    const response = await apiClient.get('/api/exams', { params });
     return response.data;
   },
 

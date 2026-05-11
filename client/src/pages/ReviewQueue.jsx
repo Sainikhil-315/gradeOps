@@ -24,26 +24,29 @@ export default function ReviewQueue() {
     approve, override, hasNext, hasPrev, progress,
   } = useGradeQueue(examId)
 
-  const { totalPending, totalApproved, totalOverridden } = useGradeStore(s => ({
-    totalPending:    s.totalPending,
-    totalApproved:   s.totalApproved,
-    totalOverridden: s.totalOverridden,
-  }))
+  const totalPending = useGradeStore(s => s.totalPending)
+  const totalApproved = useGradeStore(s => s.totalApproved)
+  const totalOverridden = useGradeStore(s => s.totalOverridden)
 
   /* Load exam list for selector */
   useEffect(() => {
+    let isMounted = true
     ;(async () => {
       try {
         const data = await examsAPI.listExams()
-        setExams(data.exams || [])
-        // auto-select first if none selected
-        if (!examId && data.exams?.length > 0) {
-          setSearchParams({ exam_id: data.exams[0].id })
+        if (!isMounted) return
+        const list = data.exams || []
+        setExams(list)
+        
+        // auto-select first if none selected and we have exams
+        if (!examId && list.length > 0 && list[0].id) {
+          setSearchParams({ exam_id: list[0].id }, { replace: true })
         }
-      } catch { /* silently fail – user can pick manually */ }
-      finally { setLoadingExams(false) }
+      } catch { /* silently fail */ }
+      finally { if (isMounted) setLoadingExams(false) }
     })()
-  }, [])
+    return () => { isMounted = false }
+  }, [examId, setSearchParams])
 
   /* Keyboard shortcuts */
   useEffect(() => {
