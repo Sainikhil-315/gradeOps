@@ -5,6 +5,51 @@ import { useAuthStore } from '../store/authStore'
 import { authAPI } from '../api'
 import { useToast } from '../hooks'
 
+const inputStyle = {
+  width: '100%',
+  padding: '11px 14px 11px 42px',
+  borderRadius: 10,
+  border: '1px solid rgba(255,255,255,0.1)',
+  background: 'rgba(255,255,255,0.05)',
+  color: '#f1f5f9',
+  fontSize: 14,
+  fontFamily: 'Inter, sans-serif',
+  outline: 'none',
+  transition: 'all 200ms ease',
+}
+
+const InputField = ({ icon: Icon, type, value, onChange, placeholder, rightNode, disabled }) => (
+  <div style={{ position: 'relative' }}>
+    <Icon size={17} style={{
+      position: 'absolute', left: 13, top: '50%',
+      transform: 'translateY(-50%)', color: '#475569', pointerEvents: 'none',
+    }} />
+    <input
+      type={type}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      disabled={disabled}
+      style={inputStyle}
+      onFocus={e => {
+        e.target.style.border = '1px solid #6366f1'
+        e.target.style.background = 'rgba(99,102,241,0.07)'
+        e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.18)'
+      }}
+      onBlur={e => {
+        e.target.style.border = '1px solid rgba(255,255,255,0.1)'
+        e.target.style.background = 'rgba(255,255,255,0.05)'
+        e.target.style.boxShadow = 'none'
+      }}
+    />
+    {rightNode && (
+      <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }}>
+        {rightNode}
+      </div>
+    )}
+  </div>
+)
+
 export default function Login() {
   const navigate = useNavigate()
   const { setUser, setLoading } = useAuthStore()
@@ -47,51 +92,6 @@ export default function Login() {
       toast.error(error.response?.data?.detail || 'Registration failed')
     } finally { setIsLoading(false); setLoading(false) }
   }
-
-  const inputStyle = {
-    width: '100%',
-    padding: '11px 14px 11px 42px',
-    borderRadius: 10,
-    border: '1px solid rgba(255,255,255,0.1)',
-    background: 'rgba(255,255,255,0.05)',
-    color: '#f1f5f9',
-    fontSize: 14,
-    fontFamily: 'Inter, sans-serif',
-    outline: 'none',
-    transition: 'all 200ms ease',
-  }
-
-  const InputField = ({ icon: Icon, type, value, onChange, placeholder, rightNode }) => (
-    <div style={{ position: 'relative' }}>
-      <Icon size={17} style={{
-        position: 'absolute', left: 13, top: '50%',
-        transform: 'translateY(-50%)', color: '#475569', pointerEvents: 'none',
-      }} />
-      <input
-        type={type}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        disabled={isLoading}
-        style={inputStyle}
-        onFocus={e => {
-          e.target.style.border = '1px solid #6366f1'
-          e.target.style.background = 'rgba(99,102,241,0.07)'
-          e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.18)'
-        }}
-        onBlur={e => {
-          e.target.style.border = '1px solid rgba(255,255,255,0.1)'
-          e.target.style.background = 'rgba(255,255,255,0.05)'
-          e.target.style.boxShadow = 'none'
-        }}
-      />
-      {rightNode && (
-        <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }}>
-          {rightNode}
-        </div>
-      )}
-    </div>
-  )
 
   return (
     <div style={{
@@ -210,6 +210,7 @@ export default function Login() {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="you@university.edu"
+                  disabled={isLoading}
                 />
               </div>
 
@@ -221,6 +222,7 @@ export default function Login() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••"
+                  disabled={isLoading}
                   rightNode={
                     <button type="button" onClick={() => setShowPassword(!showPassword)}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#475569', padding: 0, display: 'flex' }}>
@@ -253,6 +255,7 @@ export default function Login() {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="you@university.edu"
+                  disabled={isLoading}
                 />
               </div>
 
@@ -264,6 +267,7 @@ export default function Login() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••"
+                  disabled={isLoading}
                   rightNode={
                     <button type="button" onClick={() => setShowPassword(!showPassword)}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#475569', padding: 0, display: 'flex' }}>
