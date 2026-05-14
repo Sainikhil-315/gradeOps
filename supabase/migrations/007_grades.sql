@@ -62,6 +62,7 @@ CREATE INDEX IF NOT EXISTS idx_grades_embedding ON grades
 CREATE INDEX IF NOT EXISTS idx_grades_criteria_breakdown ON grades USING GIN (criteria_breakdown);
 
 -- Trigger to auto-update updated_at timestamp
+DROP TRIGGER IF EXISTS grades_updated_at_trigger ON grades;
 CREATE TRIGGER grades_updated_at_trigger
 BEFORE UPDATE ON grades
 FOR EACH ROW

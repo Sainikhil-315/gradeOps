@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS pipeline_jobs (
 CREATE INDEX IF NOT EXISTS idx_pipeline_jobs_submission_id ON pipeline_jobs(submission_id);
 CREATE INDEX IF NOT EXISTS idx_pipeline_jobs_status ON pipeline_jobs(status);
 
+DROP TRIGGER IF EXISTS pipeline_jobs_updated_at_trigger ON pipeline_jobs;
 CREATE TRIGGER pipeline_jobs_updated_at_trigger
 BEFORE UPDATE ON pipeline_jobs
 FOR EACH ROW

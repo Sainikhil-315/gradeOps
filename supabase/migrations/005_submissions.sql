@@ -32,6 +32,7 @@ CREATE INDEX IF NOT EXISTS idx_submissions_status ON submissions(status);
 CREATE INDEX IF NOT EXISTS idx_submissions_student_roll ON submissions(exam_id, roll_number);
 
 -- Trigger to auto-update updated_at timestamp
+DROP TRIGGER IF EXISTS submissions_updated_at_trigger ON submissions;
 CREATE TRIGGER submissions_updated_at_trigger
 BEFORE UPDATE ON submissions
 FOR EACH ROW

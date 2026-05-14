@@ -20,11 +20,11 @@ import { useDarkMode } from '../../hooks/useDarkMode'
 
 /* ── Workflow steps shown in sidebar ── */
 const WORKFLOW_STEPS = [
-  { num: 1, label: 'Publish Exam',    icon: Upload,         instructor: true,  ta: false },
-  { num: 2, label: 'Setup Rubric',    icon: BookOpen,       instructor: true,  ta: false },
+  { num: 1, label: 'Publish Exam',    icon: Upload,         instructor: true,  ta: false, path: '/upload' },
+  { num: 2, label: 'Setup Rubric',    icon: BookOpen,       instructor: true,  ta: false, path: '/rubric' },
   { num: 3, label: 'AI Processing',  icon: Cpu,            instructor: false, ta: false, system: true },
-  { num: 4, label: 'TA Review',      icon: ClipboardCheck, instructor: false, ta: true  },
-  { num: 5, label: 'Export Grades',  icon: Download,       instructor: true,  ta: false },
+  { num: 4, label: 'TA Review',      icon: ClipboardCheck, instructor: false, ta: true,  path: '/review' },
+  { num: 5, label: 'Export Grades',  icon: Download,       instructor: true,  ta: false, path: '/export' },
 ]
 
 const INSTRUCTOR_NAV = [
@@ -169,9 +169,40 @@ export default function Sidebar() {
               const isCurrentStep = activeStep === step.num
               const isPast = activeStep > step.num
               const isSystem = step.system
+              const isClickable = step.path && !isSystem
 
               return (
-                <div key={step.num} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <button
+                  key={step.num}
+                  onClick={() => isClickable && navigate(step.path)}
+                  disabled={!isClickable}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 10,
+                    width: '100%',
+                    background: 'transparent',
+                    border: 'none',
+                    padding: '0 4px',
+                    textAlign: 'left',
+                    cursor: isClickable ? 'pointer' : 'default',
+                    opacity: isClickable || isCurrentStep ? 1 : 0.6,
+                    transition: 'all 200ms ease',
+                    marginBottom: 0,
+                  }}
+                  onMouseEnter={e => {
+                    if (isClickable) {
+                      e.currentTarget.style.transform = 'translateX(4px)'
+                      e.currentTarget.style.opacity = '1'
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (isClickable) {
+                      e.currentTarget.style.transform = 'translateX(0)'
+                      e.currentTarget.style.opacity = isCurrentStep ? '1' : '0.8'
+                    }
+                  }}
+                >
                   {/* Line + dot */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
                     <div style={{
@@ -228,7 +259,7 @@ export default function Sidebar() {
                       <p style={{ fontSize: 10, color: '#475569', marginTop: 1 }}>Automatic</p>
                     )}
                   </div>
-                </div>
+                </button>
               )
             })}
           </div>

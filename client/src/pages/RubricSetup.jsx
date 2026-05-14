@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../components/Layout'
 import {
@@ -18,6 +18,35 @@ export default function RubricSetup() {
   ])
   const [nextId, setNextId] = useState(2)
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [existingRubricId, setExistingRubricId] = useState(null)
+
+  useEffect(() => {
+    const fetchExistingRubric = async () => {
+      try {
+        const data = await rubricsAPI.getRubricByExam(examId)
+        if (data && data.criteria && data.criteria.length > 0) {
+          setExistingRubricId(data.id)
+          setCriteria(data.criteria.map((c, idx) => ({
+            id: idx + 1,
+            name: c.id,
+            maxMarks: c.marks.toString(),
+            description: c.description || ''
+          })))
+          setNextId(data.criteria.length + 1)
+        }
+      } catch (error) {
+        // 404 is expected if no rubric exists yet
+        if (error.response?.status !== 404) {
+          console.error("Failed to load existing rubric", error)
+        }
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    fetchExistingRubric()
+  }, [examId])
 
   const addCriterion = () => {
     setCriteria(prev => [...prev, { id: nextId, name: '', maxMarks: '', description: '' }])
@@ -44,15 +73,22 @@ export default function RubricSetup() {
 
     setIsSaving(true)
     try {
-      await rubricsAPI.createRubric(examId, {
+      const payload = {
         criteria: criteria.map(c => ({
           id: c.name,
           marks: parseInt(c.maxMarks),
           description: c.description,
         })),
         max_marks: total,
-      })
-      toast.success('Rubric saved! The system will now begin AI grading.')
+      }
+
+      if (existingRubricId) {
+        await rubricsAPI.updateRubric(existingRubricId, payload)
+        toast.success('Rubric updated successfully!')
+      } else {
+        await rubricsAPI.createRubric(examId, payload)
+        toast.success('Rubric saved! The system will now begin AI grading.')
+      }
       setTimeout(() => navigate('/dashboard'), 1200)
     } catch (error) {
       const msg = error.response?.data?.detail ||
@@ -78,7 +114,7 @@ export default function RubricSetup() {
         {/* ── Header ── */}
         <div style={{ marginBottom: 32 }}>
           <h1 style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em' }}>
-            Setup Rubric
+            {existingRubricId ? 'Edit Rubric' : 'Setup Rubric'}
           </h1>
           <p style={{ color: '#64748b', marginTop: 4, fontSize: 14 }}>
             Define grading criteria and point breakdowns. The AI will use this rubric to grade each answer.
@@ -291,12 +327,12 @@ export default function RubricSetup() {
               </button>
               <button
                 onClick={saveRubric}
-                disabled={isSaving}
+                disabled={isSaving || isLoading}
                 className="btn btn-primary"
               >
                 {isSaving
                   ? <><Loader2 size={16} style={{ animation: 'spinSlow 0.8s linear infinite' }} /> Saving…</>
-                  : <><Save size={16} /> Save Rubric</>
+                  : <><Save size={16} /> {existingRubricId ? 'Update Rubric' : 'Save Rubric'}</>
                 }
               </button>
             </div>

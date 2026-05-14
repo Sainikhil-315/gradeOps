@@ -39,9 +39,9 @@ async def lifespan(app: FastAPI):
     try:
         health = await health_check()
         if health["database"] and health["storage"]:
-            logger.info("✓ All services healthy")
+            logger.info("[SUCCESS] All services healthy")
         else:
-            logger.warning(f"⚠️  Health check issues: {health}")
+            logger.warning(f"[WARNING] Health check issues: {health}")
     except Exception as e:
         logger.error(f"Health check failed: {e}")
     
@@ -71,7 +71,7 @@ async def lifespan(app: FastAPI):
         await worker_task
     except Exception:
         pass
-    logger.info("🛑 GradeOps API shutting down...")
+    logger.info("[STOP] GradeOps API shutting down...")
 
 
 # Create FastAPI app
@@ -167,7 +167,7 @@ app.include_router(grades.router)
 app.include_router(export.router)
 app.include_router(pipeline.router)
 
-logger.info("✓ All routes registered")
+logger.info("[SUCCESS] All routes registered")
 
 
 if __name__ == "__main__":

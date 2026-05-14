@@ -36,6 +36,7 @@ CREATE INDEX IF NOT EXISTS idx_rubrics_exam_id ON rubrics(exam_id);
 CREATE INDEX IF NOT EXISTS idx_rubrics_criteria ON rubrics USING GIN (criteria);
 
 -- Trigger to auto-update updated_at timestamp
+DROP TRIGGER IF EXISTS rubrics_updated_at_trigger ON rubrics;
 CREATE TRIGGER rubrics_updated_at_trigger
 BEFORE UPDATE ON rubrics
 FOR EACH ROW

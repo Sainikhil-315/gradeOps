@@ -136,7 +136,7 @@ required_settings = {
 missing_settings = [k for k, v in required_settings.items() if not v]
 if missing_settings:
     logger.warning(
-        f"⚠️  Missing required environment variables: {', '.join(missing_settings)}"
+        f"[WARNING] Missing required environment variables: {', '.join(missing_settings)}"
     )
 
-logger.info(f"✓ Configuration loaded: {settings.APP_NAME} (Debug: {settings.DEBUG})")
+logger.info(f"[SUCCESS] Configuration loaded: {settings.APP_NAME} (Debug: {settings.DEBUG})")

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
-import { Plus, BarChart3, FileText, Clock, ChevronRight, Upload, BookOpen, Cpu, ClipboardCheck, Download, Zap, TrendingUp } from 'lucide-react'
+import { Plus, BarChart3, FileText, Clock, ChevronRight, Upload, BookOpen, Cpu, ClipboardCheck, Download, Zap, TrendingUp, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { examsAPI } from '../api'
 import { useToast } from '../hooks'
@@ -43,11 +43,27 @@ export default function InstructorDashboard() {
     setIsLoading(true)
     try {
       const data = await examsAPI.listExams()
-      if (data?.exams?.length > 0) setExams(data.exams)
+      if (data?.exams?.length > 0) {
+        setExams(data.exams)
+      } else {
+        setExams([])
+      }
     } catch {
       // use mock data on error
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleDeleteExam = async (examId) => {
+    if (!window.confirm('Are you sure you want to delete this exam? All submissions and grades will be permanently lost.')) return
+    
+    try {
+      await examsAPI.deleteExam(examId)
+      toast.success('Exam deleted successfully')
+      loadExams()
+    } catch (error) {
+      toast.error('Failed to delete exam')
     }
   }
 
@@ -57,9 +73,9 @@ export default function InstructorDashboard() {
 
   const stats = [
     { label: 'Total Exams',       value: exams.length,   icon: FileText,   gradient: 'linear-gradient(135deg,#6366f1,#818cf8)', glow: 'rgba(99,102,241,0.3)'  },
-    { label: 'Pending Review',    value: pendingReview,  icon: Clock,      gradient: 'linear-gradient(135deg,#f59e0b,#fbbf24)', glow: 'rgba(245,158,11,0.3)'  },
-    { label: 'Total Submissions', value: totalSubmissions,icon: BarChart3, gradient: 'linear-gradient(135deg,#10b981,#34d399)', glow: 'rgba(16,185,129,0.3)'  },
-    { label: 'Graded',           value: totalGraded,    icon: TrendingUp, gradient: 'linear-gradient(135deg,#3b82f6,#60a5fa)', glow: 'rgba(59,130,246,0.3)'  },
+    { label: 'Pending Review',    value: pendingReview || 0,  icon: Clock,      gradient: 'linear-gradient(135deg,#f59e0b,#fbbf24)', glow: 'rgba(245,158,11,0.3)'  },
+    { label: 'Total Submissions', value: totalSubmissions || 0,icon: BarChart3, gradient: 'linear-gradient(135deg,#10b981,#34d399)', glow: 'rgba(16,185,129,0.3)'  },
+    { label: 'Graded',           value: totalGraded || 0,    icon: TrendingUp, gradient: 'linear-gradient(135deg,#3b82f6,#60a5fa)', glow: 'rgba(59,130,246,0.3)'  },
   ]
 
   return (
@@ -250,11 +266,13 @@ export default function InstructorDashboard() {
                     </div>
 
                     {/* Submissions */}
-                    <p style={{ fontSize: 14, color: '#94a3b8' }}>{exam.submissions}</p>
+                    <p style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>{exam.submissions || 0}</p>
 
                     {/* Graded with progress */}
                     <div>
-                      <p style={{ fontSize: 14, color: '#94a3b8', marginBottom: 4 }}>{exam.graded} / {exam.submissions}</p>
+                      <p style={{ fontSize: 14, color: '#94a3b8', marginBottom: 4, fontWeight: 500 }}>
+                        {exam.graded || 0} <span style={{ color: '#475569', fontWeight: 400 }}>/ {exam.submissions || 0}</span>
+                      </p>
                       <div style={{ width: 80, height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
                         <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg,#6366f1,#818cf8)', borderRadius: 4 }} />
                       </div>
@@ -277,6 +295,21 @@ export default function InstructorDashboard() {
 
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        onClick={() => navigate(`/upload/${exam.id}`)}
+                        style={{
+                          padding: '5px 10px', borderRadius: 7,
+                          background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)',
+                          color: '#93c5fd', fontSize: 12, fontWeight: 500,
+                          cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                          transition: 'all 150ms ease',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.2)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(59,130,246,0.1)'}
+                        title="Upload Submissions"
+                      >
+                        Upload
+                      </button>
                       <button
                         onClick={() => navigate(`/rubric/${exam.id}`)}
                         style={{
@@ -306,6 +339,21 @@ export default function InstructorDashboard() {
                         title="Export Grades"
                       >
                         Export
+                      </button>
+                      <button
+                        onClick={() => handleDeleteExam(exam.id)}
+                        style={{
+                          padding: '5px', borderRadius: 7,
+                          background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+                          color: '#fca5a5', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'all 150ms ease', marginLeft: 'auto'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.2)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
+                        title="Delete Exam"
+                      >
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </div>

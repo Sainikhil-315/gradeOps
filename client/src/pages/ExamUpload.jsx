@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../components/Layout'
 import {
   Upload, FileText, Plus, Trash2, ArrowRight, CheckCircle2,
@@ -23,6 +23,7 @@ const NEXT_STEPS = [
 
 export default function ExamUpload() {
   const navigate = useNavigate()
+  const { examId } = useParams()
   const toast = useToast()
   const fileInputRef = useRef(null)
 
@@ -33,8 +34,8 @@ export default function ExamUpload() {
   const [uploadingFileIndex, setUploadingFileIndex] = useState(null)
   const [isCreatingExam, setIsCreatingExam] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
-  const [newExamId, setNewExamId] = useState(null)
-  const [step, setStep] = useState(1)
+  const [newExamId, setNewExamId] = useState(examId || null)
+  const [step, setStep] = useState(examId ? 2 : 1)
 
   /* ── File handling ── */
   const addFiles = (newFiles) => {
@@ -69,19 +70,26 @@ export default function ExamUpload() {
 
   const uploadFiles = async () => {
     if (files.length === 0) { toast.error('Please select at least one PDF'); return }
+    let successCount = 0
     for (let i = 0; i < files.length; i++) {
       setUploadingFileIndex(i)
       try {
         await submissionsAPI.uploadSubmission(newExamId, files[i])
         setUploadProgress(prev => ({ ...prev, [i]: 'done' }))
-      } catch {
-        toast.error(`Failed to upload ${files[i].name}`)
+        successCount++
+      } catch (err) {
+        const detail = err.response?.data?.detail || `Failed to upload ${files[i].name}`
+        toast.error(detail)
         setUploadProgress(prev => ({ ...prev, [i]: 'error' }))
       }
     }
     setUploadingFileIndex(null)
-    toast.success(`${files.length} file${files.length > 1 ? 's' : ''} uploaded!`)
-    setStep(3)
+    if (successCount > 0) {
+      toast.success(`${successCount} file${successCount > 1 ? 's' : ''} uploaded successfully!`)
+      setStep(3)
+    } else {
+      toast.error('All uploads failed. Check the backend server logs.')
+    }
   }
 
   const formatSize = (bytes) => {
@@ -96,10 +104,12 @@ export default function ExamUpload() {
         {/* ── Header ── */}
         <div style={{ marginBottom: 32 }}>
           <h1 style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em' }}>
-            Upload Exam
+            {examId ? 'Upload Student PDFs' : 'Upload Exam'}
           </h1>
           <p style={{ color: '#64748b', marginTop: 4, fontSize: 14 }}>
-            Create an exam, upload student PDFs, then set up the grading rubric.
+            {examId 
+              ? 'Upload student PDF submissions for this exam.' 
+              : 'Create an exam, upload student PDFs, then set up the grading rubric.'}
           </p>
         </div>
 
@@ -376,13 +386,23 @@ export default function ExamUpload() {
             </div>
 
             {/* CTA */}
-            <button
-              onClick={() => navigate(`/rubric/${newExamId}`)}
-              className="btn btn-primary btn-full btn-lg"
-            >
-              Setup Grading Rubric
-              <ArrowRight size={18} />
-            </button>
+            {examId ? (
+              <button
+                onClick={() => navigate(`/export/${newExamId}`)}
+                className="btn btn-primary btn-full btn-lg"
+              >
+                Go to Export / Analysis
+                <ArrowRight size={18} />
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate(`/rubric/${newExamId}`)}
+                className="btn btn-primary btn-full btn-lg"
+              >
+                Setup Grading Rubric
+                <ArrowRight size={18} />
+              </button>
+            )}
 
             <button
               onClick={() => navigate('/dashboard')}

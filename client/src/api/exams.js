@@ -68,6 +68,28 @@ export const examsAPI = {
     const response = await apiClient.get(`/api/exams/${examId}/stats`);
     return response.data;
   },
+
+  /**
+   * Export grades as CSV
+   */
+  exportCSV: async (examId, includeJustifications = true, includePlagiarism = true) => {
+    const response = await apiClient.get(`/api/export/${examId}/csv`, {
+      params: { 
+        include_justifications: includeJustifications,
+        include_plagiarism: includePlagiarism
+      },
+      responseType: 'blob' // Important to receive binary data
+    });
+    return response.data;
+  },
+
+  /**
+   * Export exam summary as JSON
+   */
+  exportJSON: async (examId) => {
+    const response = await apiClient.get(`/api/export/${examId}/summary`);
+    return response.data;
+  },
 };
 
 export default examsAPI;

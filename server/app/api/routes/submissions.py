@@ -68,23 +68,30 @@ async def upload_submission(
                 detail="Only PDF files are allowed"
             )
         
-        # Create submission with file
-        submission_create = SubmissionCreate(
-            student_name=student_name,
-            roll_number=roll_number,
-        )
-        
         # Read file content
         content = await file.read()
         
-        object_path = f"{exam_id}/{uuid.uuid4()}_{file.filename}"
-        supabase.storage.from_(SupabaseConfig.EXAM_PDFS_BUCKET).upload(
-            path=object_path,
-            file=content,
-            file_options={"content-type": "application/pdf"},
+        # Try uploading to Supabase storage (may fail if bucket doesn't exist)
+        public_url = None
+        try:
+            object_path = f"{exam_id}/{uuid.uuid4()}_{file.filename}"
+            supabase.storage.from_(SupabaseConfig.EXAM_PDFS_BUCKET).upload(
+                path=object_path,
+                file=content,
+                file_options={"content-type": "application/pdf"},
+            )
+            public_url = supabase.storage.from_(SupabaseConfig.EXAM_PDFS_BUCKET).get_public_url(object_path)
+            logger.info(f"File uploaded to Supabase storage: {object_path}")
+        except Exception as storage_err:
+            logger.warning(f"Supabase storage upload failed (bucket may not exist): {storage_err}")
+            public_url = f"local://{file.filename}"  # Fallback placeholder
+        
+        # Create submission record in DB (always succeeds)
+        submission_create = SubmissionCreate(
+            student_name=student_name or file.filename.replace('.pdf', '').replace('_', ' ').replace('-', ' '),
+            roll_number=roll_number,
+            pdf_url=public_url,
         )
-        public_url = supabase.storage.from_(SupabaseConfig.EXAM_PDFS_BUCKET).get_public_url(object_path)
-        submission_create.pdf_url = public_url
 
         db_submission = SubmissionService.create_submission(db, exam_uuid, submission_create)
         
@@ -96,11 +103,13 @@ async def upload_submission(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid exam ID format"
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error uploading submission: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to upload submission"
+            detail=f"Failed to upload submission: {str(e)}"
         )
 
 

@@ -52,6 +52,14 @@ function AppContent() {
           }
         />
         <Route
+          path="/upload/:examId"
+          element={
+            <InstructorRoute>
+              <ExamUpload />
+            </InstructorRoute>
+          }
+        />
+        <Route
           path="/rubric/:examId"
           element={
             <InstructorRoute>

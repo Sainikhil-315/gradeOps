@@ -32,6 +32,7 @@ CREATE INDEX IF NOT EXISTS idx_answer_regions_submission_id ON answer_regions(su
 CREATE INDEX IF NOT EXISTS idx_answer_regions_question_id ON answer_regions(submission_id, question_id);
 
 -- Trigger to auto-update updated_at timestamp
+DROP TRIGGER IF EXISTS answer_regions_updated_at_trigger ON answer_regions;
 CREATE TRIGGER answer_regions_updated_at_trigger
 BEFORE UPDATE ON answer_regions
 FOR EACH ROW

@@ -15,10 +15,10 @@ export const rubricsAPI = {
   },
 
   /**
-   * Get rubric by ID
+   * Get rubric by Exam ID
    */
-  getRubric: async (rubricId) => {
-    const response = await apiClient.get(`/api/rubrics/${rubricId}`);
+  getRubricByExam: async (examId) => {
+    const response = await apiClient.get(`/api/rubrics/${examId}`);
     return response.data;
   },
 
@@ -36,7 +36,7 @@ export const rubricsAPI = {
    * Update rubric
    */
   updateRubric: async (rubricId, rubricData) => {
-    const response = await apiClient.patch(`/api/rubrics/${rubricId}`, rubricData);
+    const response = await apiClient.put(`/api/rubrics/${rubricId}`, rubricData);
     return response.data;
   },
 

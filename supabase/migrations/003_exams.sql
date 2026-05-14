@@ -29,6 +29,7 @@ CREATE INDEX IF NOT EXISTS idx_exams_instructor_id ON exams(instructor_id);
 CREATE INDEX IF NOT EXISTS idx_exams_status ON exams(status);
 
 -- Trigger to auto-update updated_at timestamp
+DROP TRIGGER IF EXISTS exams_updated_at_trigger ON exams;
 CREATE TRIGGER exams_updated_at_trigger
 BEFORE UPDATE ON exams
 FOR EACH ROW
@@ -38,6 +39,7 @@ EXECUTE FUNCTION update_updated_at_column();
 ALTER TABLE exams ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policy: Instructors can only see their own exams
+DROP POLICY IF EXISTS exams_instructor_isolation ON exams;
 CREATE POLICY exams_instructor_isolation ON exams
     USING (instructor_id = auth.uid());
 

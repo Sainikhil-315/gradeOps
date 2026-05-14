@@ -63,7 +63,7 @@ class SupabaseConfig:
             logger.error(f"Missing required environment variables: {', '.join(missing)}")
             return False
         
-        logger.info("✓ Supabase configuration validated")
+        logger.info("[SUCCESS] Supabase configuration validated")
         return True
 
 
@@ -81,7 +81,7 @@ supabase: Client = create_client(
     SupabaseConfig.SUPABASE_KEY  # Service role key for server-side operations
 )
 
-logger.info(f"✓ Supabase client initialized: {SupabaseConfig.SUPABASE_URL}")
+logger.info(f"[SUCCESS] Supabase client initialized: {SupabaseConfig.SUPABASE_URL}")
 
 
 # SQLAlchemy engine for database operations
@@ -101,7 +101,7 @@ engine = create_engine(
     }
 )
 
-logger.info("✓ SQLAlchemy engine created with connection pooling")
+logger.info("[SUCCESS] SQLAlchemy engine created with connection pooling")
 
 
 # Session factory
@@ -173,10 +173,10 @@ async def check_db_connection() -> bool:
     try:
         with get_db() as session:
             session.execute(text("SELECT 1"))
-        logger.info("✓ Database connection check passed")
+        logger.info("[SUCCESS] Database connection check passed")
         return True
     except Exception as e:
-        logger.error(f"✗ Database connection check failed: {str(e)}")
+        logger.error(f"[ERROR] Database connection check failed: {str(e)}")
         return False
 
 
@@ -199,13 +199,13 @@ async def check_supabase_storage() -> bool:
         
         missing = [b for b in required_buckets if b not in bucket_names]
         if missing:
-            logger.warning(f"✗ Missing storage buckets: {missing}")
+            logger.warning(f"[ERROR] Missing storage buckets: {missing}")
             return False
         
-        logger.info("✓ Supabase Storage connection check passed")
+        logger.info("[SUCCESS] Supabase Storage connection check passed")
         return True
     except Exception as e:
-        logger.error(f"✗ Supabase Storage connection check failed: {str(e)}")
+        logger.error(f"[ERROR] Supabase Storage connection check failed: {str(e)}")
         return False
 
 
