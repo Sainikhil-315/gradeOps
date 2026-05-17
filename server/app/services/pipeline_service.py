@@ -175,7 +175,7 @@ class PipelineService:
                 "needs_manual_review": False,
                 "errors": [],
             }
-            final_state = graph.invoke(initial_state)
+            final_state = await asyncio.to_thread(graph.invoke, initial_state)
             GradeService.create_grade(
                 db,
                 GradeCreate(
@@ -190,6 +190,9 @@ class PipelineService:
                 ),
                 embedding=final_state.get("embedding", []),
             )
+            
+            # Throttle LLM calls to avoid burst rate limits
+            await asyncio.sleep(2.0)
 
     @staticmethod
     async def _download_image(url: str) -> bytes:

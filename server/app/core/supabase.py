@@ -84,16 +84,12 @@ supabase: Client = create_client(
 logger.info(f"[SUCCESS] Supabase client initialized: {SupabaseConfig.SUPABASE_URL}")
 
 
-# SQLAlchemy engine for database operations
-# Using connection pooling for better performance
+# Using NullPool because Supabase port 6543 (PgBouncer) already provides connection pooling in transaction mode.
+# Using QueuePool with PgBouncer can cause connection hanging and exhaustion.
 engine = create_engine(
     SupabaseConfig.DATABASE_URL,
     echo=os.getenv("SQL_ECHO", "false").lower() == "true",  # Debug SQL queries if needed
-    poolclass=pool.QueuePool,
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,  # Verify connections before using
-    pool_recycle=3600,   # Recycle connections after 1 hour
+    poolclass=pool.NullPool,
     connect_args={
         "connect_timeout": 10,
         "keepalives": 1,

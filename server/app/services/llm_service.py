@@ -93,7 +93,7 @@ class LLMService:
                 logger.warning("llm.provider_failed provider=%s error=%s", cfg.provider, exc)
         raise RuntimeError(f"All providers failed: {' | '.join(errors)}")
 
-    @retry(stop=stop_after_attempt(settings.LLM_MAX_RETRIES), wait=wait_exponential(multiplier=1, min=1, max=10))
+    @retry(stop=stop_after_attempt(max(5, settings.LLM_MAX_RETRIES)), wait=wait_exponential(multiplier=2, min=2, max=60))
     def _invoke_provider(self, cfg: ProviderConfig, prompt: str) -> str:
         timeout = settings.LLM_REQUEST_TIMEOUT_SECONDS
         if cfg.provider == "anthropic":
