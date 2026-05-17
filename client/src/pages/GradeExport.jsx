@@ -4,9 +4,9 @@ import Layout from '../components/Layout'
 import {
   Download, FileText, AlertCircle, CheckCircle2, Loader2,
   FileSpreadsheet, FileJson, Filter, ChevronDown, Upload,
-  Clock, BarChart3, Users, BookOpen, ArrowRight, RefreshCw,
+  Clock, BarChart3, Users, BookOpen, ArrowRight, RefreshCw, Cpu
 } from 'lucide-react'
-import { examsAPI, submissionsAPI, rubricsAPI } from '../api'
+import { examsAPI, submissionsAPI, rubricsAPI, systemAPI, pipelineAPI } from '../api'
 import { useToast } from '../hooks'
 
 const STATUS_BADGES = {
@@ -26,6 +26,27 @@ export default function GradeExport() {
   const [submissions, setSubmissions] = useState([])
   const [rubric, setRubric] = useState(null)
   const [examSummary, setExamSummary] = useState(null)
+  
+  const [ocrRunning, setOcrRunning] = useState(false)
+  const [llmConfigured, setLlmConfigured] = useState(false)
+  const [pipelineTriggered, setPipelineTriggered] = useState(false)
+  const [isTriggering, setIsTriggering] = useState(false)
+
+  const handleTriggerPipeline = async () => {
+    if (submissions.length === 0) return
+    setIsTriggering(true)
+    try {
+      await Promise.all(
+        submissions.map(sub => pipelineAPI.trigger(sub.id))
+      )
+      toast.success('AI grading pipeline triggered for all submissions!')
+      await loadExamDetails(selectedExamId)
+    } catch (err) {
+      toast.error('Failed to trigger pipeline')
+    } finally {
+      setIsTriggering(false)
+    }
+  }
 
   const [format, setFormat] = useState('csv')
   const [includeJustification, setIncludeJustification] = useState(true)
@@ -54,14 +75,29 @@ export default function GradeExport() {
   const loadExamDetails = async (examId) => {
     setIsLoadingDetails(true)
     try {
-      const [subsData, rubricData, summaryData] = await Promise.allSettled([
+      const [subsData, rubricData, summaryData, healthData, pipelineData] = await Promise.allSettled([
         submissionsAPI.listSubmissions(examId),
         rubricsAPI.getRubricByExam(examId),
         examsAPI.exportJSON(examId),
+        systemAPI.getHealth(),
+        pipelineAPI.getHistory(examId),
       ])
-      setSubmissions(subsData.status === 'fulfilled' ? (subsData.value.submissions || []) : [])
+      
+      const loadedSubs = subsData.status === 'fulfilled' ? (subsData.value.submissions || []) : []
+      setSubmissions(loadedSubs)
       setRubric(rubricData.status === 'fulfilled' ? rubricData.value : null)
       setExamSummary(summaryData.status === 'fulfilled' ? summaryData.value : null)
+      
+      if (healthData.status === 'fulfilled' && healthData.value.services) {
+        setOcrRunning(!!healthData.value.services.ocr)
+        setLlmConfigured(!!healthData.value.services.llm)
+      }
+      
+      if (pipelineData.status === 'fulfilled' && pipelineData.value.history) {
+        setPipelineTriggered(pipelineData.value.history.length > 0 && pipelineData.value.history.length >= loadedSubs.length)
+      } else {
+        setPipelineTriggered(false)
+      }
     } catch {
       // handled by allSettled
     } finally { setIsLoadingDetails(false) }
@@ -338,9 +374,9 @@ export default function GradeExport() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {[
                       { done: rubric !== null, text: 'Rubric configured' },
-                      { done: false, text: 'OCR service running (port 8001)' },
-                      { done: false, text: 'LLM API key configured (OpenAI / Anthropic / xAI)' },
-                      { done: false, text: 'Pipeline triggered for each submission' },
+                      { done: ocrRunning, text: 'OCR service running (port 8001)' },
+                      { done: llmConfigured, text: 'LLM API key configured (OpenAI / Anthropic / xAI)' },
+                      { done: pipelineTriggered, text: 'Pipeline triggered for each submission' },
                     ].map((item, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {item.done
@@ -351,6 +387,27 @@ export default function GradeExport() {
                       </div>
                     ))}
                   </div>
+
+                  <button
+                    onClick={handleTriggerPipeline}
+                    disabled={isTriggering || !(ocrRunning && llmConfigured && rubric !== null)}
+                    className="btn btn-primary"
+                    style={{
+                      marginTop: 20,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      opacity: (ocrRunning && llmConfigured && rubric !== null) ? 1 : 0.5,
+                      cursor: (ocrRunning && llmConfigured && rubric !== null) ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    {isTriggering ? (
+                      <Loader2 size={15} style={{ animation: 'spinSlow 0.8s linear infinite' }} />
+                    ) : (
+                      <Cpu size={15} />
+                    )}
+                    {isTriggering ? 'Triggering AI Grading...' : 'Trigger AI Grading Now'}
+                  </button>
                 </div>
               </div>
             )}

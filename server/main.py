@@ -4,6 +4,8 @@ GradeOps FastAPI Application.
 Main entry point for the backend API.
 """
 
+# Trigger uvicorn reload with updated env
+
 import logging
 import asyncio
 from contextlib import asynccontextmanager
@@ -130,7 +132,24 @@ async def global_exception_handler(request: Request, exc: Exception):
 async def health():
     """Check API health and database connection."""
     try:
+        from app.core.config import settings
+        import httpx
+        
         status = await health_check()
+        
+        # Check LLM configuration
+        status["llm"] = bool(settings.OPENAI_API_KEY or settings.ANTHROPIC_API_KEY or settings.XAI_API_KEY)
+        
+        # Check OCR service
+        status["ocr"] = False
+        if settings.OCR_API_URL:
+            try:
+                async with httpx.AsyncClient(timeout=2.0) as client:
+                    res = await client.get(f"{settings.OCR_API_URL.rstrip('/')}/health")
+                    status["ocr"] = (res.status_code == 200)
+            except Exception:
+                pass
+                
         all_healthy = all(status.values())
         
         return {

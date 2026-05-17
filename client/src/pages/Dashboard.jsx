@@ -247,7 +247,7 @@ export default function InstructorDashboard() {
                     style={{
                       display: 'grid',
                       gridTemplateColumns: '1fr 120px 120px 100px 160px',
-                      padding: '16px 24px',
+                      padding: '16px 20px',
                       alignItems: 'center',
                       borderBottom: i < exams.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                       transition: 'background 150ms ease',

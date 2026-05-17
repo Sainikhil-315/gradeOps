@@ -37,7 +37,7 @@ def process_submission_pipeline(
         return {
             "job_id": str(job.id),
             "submission_id": str(submission_uuid),
-            "status": job.status.value,
+            "status": job.status,
             "status_url": f"/api/pipeline/status/{job.id}"
         }
     except ValueError:
@@ -73,7 +73,7 @@ def get_pipeline_status(
         return {
             "id": str(job.id),
             "submission_id": str(job.submission_id),
-            "status": job.status.value,
+            "status": job.status,
             "progress": job.progress,
             "attempts": job.attempts,
             "error": job.error,
@@ -122,7 +122,7 @@ def get_pipeline_history(
                 {
                     "job_id": str(job.id),
                     "submission_id": str(job.submission_id),
-                    "status": job.status.value,
+                    "status": job.status,
                     "progress": job.progress,
                     "attempts": job.attempts,
                     "error": job.error,
